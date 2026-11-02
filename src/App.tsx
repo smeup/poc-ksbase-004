@@ -37,7 +37,7 @@ type JsonDialogProps = {
 }
 
 async function loadConfiguration(): Promise<ApplicationDomain[]> {
-  const response = await fetch('/data/application-domains.json')
+  const response = await fetch(`${import.meta.env.BASE_URL}data/application-domains.json`)
 
   if (!response.ok) {
     throw new Error('Impossibile caricare la configurazione degli ambienti.')
@@ -289,32 +289,35 @@ function ConfigurationError() {
       <p className="eyebrow">Errore di configurazione</p>
       <h1>Dati non disponibili</h1>
       <p className="page-intro">Non &egrave; stato possibile caricare i dati degli ambienti.</p>
-      <a className="message-link" href="/">Ricarica la pagina</a>
+      <a className="message-link" href={import.meta.env.BASE_URL}>Ricarica la pagina</a>
     </main>
   )
 }
 
-const router = createBrowserRouter([
-  {
-    path: '/',
-    loader: loadConfiguration,
-    HydrateFallback: ConfigurationLoading,
-    element: <AppShell />,
-    errorElement: <ConfigurationError />,
-    children: [
-      { index: true, element: <EnvironmentSelection /> },
-      {
-        path: 'ambienti/:environmentId',
-        element: <EnvironmentLayout />,
-        children: [
-          { index: true, element: <Navigate to="dettaglio" replace /> },
-          { path: 'dettaglio', element: <EnvironmentDetail /> },
-        ],
-      },
-      { path: '*', element: <NotFoundPage /> },
-    ],
-  },
-])
+const router = createBrowserRouter(
+  [
+    {
+      path: '/',
+      loader: loadConfiguration,
+      HydrateFallback: ConfigurationLoading,
+      element: <AppShell />,
+      errorElement: <ConfigurationError />,
+      children: [
+        { index: true, element: <EnvironmentSelection /> },
+        {
+          path: 'ambienti/:environmentId',
+          element: <EnvironmentLayout />,
+          children: [
+            { index: true, element: <Navigate to="dettaglio" replace /> },
+            { path: 'dettaglio', element: <EnvironmentDetail /> },
+          ],
+        },
+        { path: '*', element: <NotFoundPage /> },
+      ],
+    },
+  ],
+  { basename: import.meta.env.BASE_URL },
+)
 
 function App() {
   return <RouterProvider router={router} />
