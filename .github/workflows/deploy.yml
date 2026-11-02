@@ -1,0 +1,40 @@
+name: Build e Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+# Permessi necessari per poter scrivere sul branch deploy
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build e pubblica su branch deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Scarica il codice
+      - name: Checkout del codice
+        uses: actions/checkout@v4
+
+      # 2. Configura Node.js
+      - name: Configura Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # 3. Installa dipendenze ed esegui la build
+      - name: Installa dipendenze ed esegui Build
+        run: |
+          npm ci
+          npm run build
+
+      # 4. Pubblica il contenuto di dist sul branch 'deploy'
+      - name: Pubblica sul branch deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: deploy
