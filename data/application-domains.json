@@ -5,51 +5,53 @@
       "id": "ges_10adv",
       "title": "GES 10 ADV",
       "description": "Ambiente applicativo per la gestione dei processi amministrativi e contabili.",
-      "features": [
-        {
-          "id": "contabilita-generale",
-          "title": "Contabilit\u00e0 generale",
-          "description": "Registrazioni contabili, piano dei conti e bilanci.",
-          "enabled": true
+      "microExecutorIds": ["me-java-as400-proxy-srvlab", "me-java-e-invoice"],
+      "uiCustomization": {
+        "theme": {
+          "id": "default",
+          "name": "Tema predefinito",
+          "mode": "light",
+          "accent": "#a51f38"
         },
-        {
-          "id": "ciclo-attivo",
-          "title": "Ciclo attivo",
-          "description": "Gestione di clienti, offerte e documenti di vendita.",
-          "enabled": true
+        "localization": {
+          "locale": "it-IT",
+          "language": "Italiano",
+          "dateFormat": "dd/MM/yyyy",
+          "numberFormat": "it-IT"
         },
-        {
-          "id": "ciclo-passivo",
-          "title": "Ciclo passivo",
-          "description": "Gestione di fornitori, acquisti e documenti passivi.",
-          "enabled": true
+        "activeLogo": {
+          "id": "ges-10adv-primary",
+          "name": "GES 10 ADV",
+          "mark": "GES",
+          "alt": "Logo GES 10 ADV"
         }
-      ]
+      }
     },
     {
       "id": "holos",
       "title": "HOLOS",
       "description": "Ambiente applicativo per l'organizzazione dei servizi e dei flussi operativi.",
-      "features": [
-        {
-          "id": "agenda-servizi",
-          "title": "Agenda servizi",
-          "description": "Pianificazione di attivit\u00e0 e disponibilit\u00e0.",
-          "enabled": true
+      "microExecutorIds": ["me-node-holos", "me-java-e-invoice"],
+      "uiCustomization": {
+        "theme": {
+          "id": "default",
+          "name": "Tema predefinito",
+          "mode": "light",
+          "accent": "#a51f38"
         },
-        {
-          "id": "gestione-pratiche",
-          "title": "Gestione pratiche",
-          "description": "Raccolta e avanzamento delle pratiche operative.",
-          "enabled": true
+        "localization": {
+          "locale": "it-IT",
+          "language": "Italiano",
+          "dateFormat": "dd/MM/yyyy",
+          "numberFormat": "it-IT"
         },
-        {
-          "id": "workflow",
-          "title": "Workflow",
-          "description": "Instradamento delle attivita tra ruoli e gruppi.",
-          "enabled": true
+        "activeLogo": {
+          "id": "holos-primary",
+          "name": "HOLOS",
+          "mark": "HO",
+          "alt": "Logo HOLOS"
         }
-      ]
+      }
     }
   ]
 }

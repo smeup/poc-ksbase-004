@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "microExecutors": [
+    {
+      "id": "me-java-as400-proxy-srvlab",
+      "title": "Proxy AS400 SRVLAB",
+      "description": "Proxy verso AS400 srvlab01.smeup.com.",
+      "url": "http://me-java-as400-proxy-srvlab-svc",
+      "apis": [
+        {
+          "id": "AS_001_01",
+          "description": "Recupera il saldo contabile di un cliente.",
+          "microExecutorId": "me-java-as400-proxy-srvlab"
+        },
+        {
+          "id": "AS_002_02",
+          "description": "Legge i dati anagrafici e amministrativi di un cliente.",
+          "microExecutorId": "me-java-as400-proxy-srvlab"
+        },
+        {
+          "id": "AS_003_03",
+          "description": "Elenca gli ordini cliente ancora aperti.",
+          "microExecutorId": "me-java-as400-proxy-srvlab"
+        },
+        {
+          "id": "AS_004_04",
+          "description": "Verifica la disponibilita di un articolo per deposito.",
+          "microExecutorId": "me-java-as400-proxy-srvlab"
+        },
+        {
+          "id": "AS_005_05",
+          "description": "Recupera lo storico delle consegne di un cliente.",
+          "microExecutorId": "me-java-as400-proxy-srvlab"
+        }
+      ]
+    },
+    {
+      "id": "me-node-holos",
+      "title": "Proxy HOLOS L64",
+      "description": "Proxy verso L64 per l'ambiente HOLOS.",
+      "url": "http://me-node-holos-svc",
+      "apis": [
+        {
+          "id": "HO_001_01",
+          "description": "Recupera il dettaglio di un ordine di lavoro.",
+          "microExecutorId": "me-node-holos"
+        },
+        {
+          "id": "HO_002_02",
+          "description": "Elenca la pianificazione delle risorse operative.",
+          "microExecutorId": "me-node-holos"
+        },
+        {
+          "id": "HO_003_03",
+          "description": "Consulta gli appuntamenti previsti in un intervallo.",
+          "microExecutorId": "me-node-holos"
+        },
+        {
+          "id": "HO_004_04",
+          "description": "Legge lo stato di avanzamento di una pratica.",
+          "microExecutorId": "me-node-holos"
+        },
+        {
+          "id": "HO_005_05",
+          "description": "Restituisce il riepilogo delle attivita di un flusso.",
+          "microExecutorId": "me-node-holos"
+        }
+      ]
+    },
+    {
+      "id": "me-java-e-invoice",
+      "title": "Fatturazione elettronica",
+      "description": "Servizio per la gestione della fatturazione elettronica.",
+      "url": "http://me-java-e-invoice-svc",
+      "apis": [
+        {
+          "id": "EI_001_01",
+          "description": "Elenca le fatture emesse secondo i filtri richiesti.",
+          "microExecutorId": "me-java-e-invoice"
+        },
+        {
+          "id": "EI_002_02",
+          "description": "Recupera l'esito di trasmissione di una fattura.",
+          "microExecutorId": "me-java-e-invoice"
+        },
+        {
+          "id": "EI_003_03",
+          "description": "Verifica i dati del destinatario prima dell'invio.",
+          "microExecutorId": "me-java-e-invoice"
+        },
+        {
+          "id": "EI_004_04",
+          "description": "Prepara il documento fattura per la trasmissione.",
+          "microExecutorId": "me-java-e-invoice"
+        },
+        {
+          "id": "EI_005_05",
+          "description": "Richiede un nuovo invio di una fattura non consegnata.",
+          "microExecutorId": "me-java-e-invoice"
+        }
+      ]
+    }
+  ]
+}
