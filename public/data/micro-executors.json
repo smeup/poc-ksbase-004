@@ -6,6 +6,14 @@
       "title": "Proxy AS400 SRVLAB",
       "description": "Proxy verso AS400 srvlab01.smeup.com.",
       "url": "http://me-java-as400-proxy-srvlab-svc",
+      "dataSources": [
+        {
+          "id": "db2-srvlab",
+          "title": "DB2 SRVLAB",
+          "type": "DB2 for i (AS/400)",
+          "description": "Database dei dati gestiti dal proxy AS400."
+        }
+      ],
       "apis": [
         {
           "id": "AS_001_01",
@@ -39,6 +47,14 @@
       "title": "Proxy HOLOS L64",
       "description": "Proxy verso L64 per l'ambiente HOLOS.",
       "url": "http://me-node-holos-svc",
+      "dataSources": [
+        {
+          "id": "sap-holos",
+          "title": "SAP HOLOS",
+          "type": "Istanza SAP",
+          "description": "Istanza SAP per i flussi operativi HOLOS."
+        }
+      ],
       "apis": [
         {
           "id": "HO_001_01",
@@ -72,6 +88,14 @@
       "title": "Fatturazione elettronica",
       "description": "Servizio per la gestione della fatturazione elettronica.",
       "url": "http://me-java-e-invoice-svc",
+      "dataSources": [
+        {
+          "id": "postgres-e-invoice",
+          "title": "PostgreSQL fatturazione",
+          "type": "Database PostgreSQL",
+          "description": "Database della fatturazione elettronica."
+        }
+      ],
       "apis": [
         {
           "id": "EI_001_01",

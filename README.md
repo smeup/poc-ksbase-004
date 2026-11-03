@@ -1,5 +1,25 @@
 # React + TypeScript + Vite
 
+## Data sources
+
+I data source mock sono definiti in `public/data/micro-executors.json` nell'array
+`dataSources` del micro executor responsabile. Ogni elemento contiene `id`,
+`title`, `type` e `description`. La pagina del dominio aggrega i data source dei
+micro executor elencati in `microExecutorIds`, senza duplicarli nella
+configurazione del dominio.
+
+## Analisi
+
+La pagina introduttiva presenta le relazioni tra UPP, microservizi e data
+source, prima dei casi di analisi. Sono principi architetturali illustrativi:
+la POC non verifica l'isolamento o i permessi dei data source.
+
+Le voci e le rispettive pagine sono definite nell'array `analysisCases` in
+`src/App.tsx`. Per aggiungere un caso, specificare percorso, titolo, descrizione,
+passaggio del ragionamento e domanda successiva o sintesi finale, spiegazioni su
+UPP e dati, esempio, sintesi per il confronto, percorso dell'immagine sotto
+`public/` e testo alternativo. L'ordine nell'array definisce il percorso.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
