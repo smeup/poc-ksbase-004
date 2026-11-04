@@ -6,6 +6,7 @@
       "title": "GES 10 ADV",
       "description": "Ambiente applicativo per la gestione dei processi amministrativi e contabili.",
       "microExecutorIds": ["me-java-as400-proxy-srvlab", "me-java-e-invoice"],
+      "uppIds": ["upp-clienti", "upp-ordini", "upp-fatturazione"],
       "uiCustomization": {
         "theme": {
           "id": "default",
@@ -32,6 +33,7 @@
       "title": "HOLOS",
       "description": "Ambiente applicativo per l'organizzazione dei servizi e dei flussi operativi.",
       "microExecutorIds": ["me-node-holos", "me-java-e-invoice"],
+      "uppIds": ["upp-holos", "upp-fatturazione"],
       "uiCustomization": {
         "theme": {
           "id": "default",

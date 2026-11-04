@@ -4,15 +4,30 @@
 
 I data source mock sono definiti in `public/data/micro-executors.json` nell'array
 `dataSources` del micro executor responsabile. Ogni elemento contiene `id`,
-`title`, `type` e `description`. La pagina del dominio aggrega i data source dei
-micro executor elencati in `microExecutorIds`, senza duplicarli nella
-configurazione del dominio.
+`title`, `type` e `description` ed è visibile nella pagina del micro executor.
+
+## UPP
+
+L'anagrafica mock `public/data/upp.json` contiene per ogni UPP `id`, `title`,
+`description` (obiettivo) e `microExecutorIds`. Il dominio associa le UPP
+tramite `uppIds` in `public/data/application-domains.json`. Ogni servizio
+elenca le UPP a cui appartiene tramite `uppIds` in
+`public/data/micro-executors.json`: la pagina della UPP mostra solo questi
+servizi, non necessariamente tutti quelli dei suoi micro executor. La voce
+«Micro executors» nella pagina UPP elenca quelli associati e permette di
+aprirne il dettaglio. Lo UPP Store del dominio mostra l'intero catalogo e
+indica le UPP attive per quel dominio; è una vista in sola lettura. Una UPP
+condivisa può essere associata a più domini. Ogni micro executor riferito dalla
+UPP deve essere associato anche ai domini che la utilizzano; i riferimenti
+incoerenti impediscono il caricamento della configurazione.
 
 ## Analisi
 
 La pagina introduttiva presenta le relazioni tra UPP, microservizi e data
 source, prima dei casi di analisi. Sono principi architetturali illustrativi:
 la POC non verifica l'isolamento o i permessi dei data source.
+La voce «Analisi rapporto micro executor e datasource» confronta quattro
+strategie di accesso ai dati per dominio; non ne implementa il funzionamento.
 
 Le voci e le rispettive pagine sono definite nell'array `analysisCases` in
 `src/App.tsx`. Per aggiungere un caso, specificare percorso, titolo, descrizione,

@@ -18,26 +18,31 @@
         {
           "id": "AS_001_01",
           "description": "Recupera il saldo contabile di un cliente.",
+          "uppIds": ["upp-clienti"],
           "microExecutorId": "me-java-as400-proxy-srvlab"
         },
         {
           "id": "AS_002_02",
           "description": "Legge i dati anagrafici e amministrativi di un cliente.",
+          "uppIds": ["upp-clienti"],
           "microExecutorId": "me-java-as400-proxy-srvlab"
         },
         {
           "id": "AS_003_03",
           "description": "Elenca gli ordini cliente ancora aperti.",
+          "uppIds": ["upp-ordini"],
           "microExecutorId": "me-java-as400-proxy-srvlab"
         },
         {
           "id": "AS_004_04",
           "description": "Verifica la disponibilita di un articolo per deposito.",
+          "uppIds": ["upp-ordini"],
           "microExecutorId": "me-java-as400-proxy-srvlab"
         },
         {
           "id": "AS_005_05",
           "description": "Recupera lo storico delle consegne di un cliente.",
+          "uppIds": ["upp-ordini"],
           "microExecutorId": "me-java-as400-proxy-srvlab"
         }
       ]
@@ -59,26 +64,31 @@
         {
           "id": "HO_001_01",
           "description": "Recupera il dettaglio di un ordine di lavoro.",
+          "uppIds": ["upp-holos"],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_002_02",
           "description": "Elenca la pianificazione delle risorse operative.",
+          "uppIds": ["upp-holos"],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_003_03",
           "description": "Consulta gli appuntamenti previsti in un intervallo.",
+          "uppIds": ["upp-holos"],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_004_04",
           "description": "Legge lo stato di avanzamento di una pratica.",
+          "uppIds": ["upp-holos"],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_005_05",
           "description": "Restituisce il riepilogo delle attivita di un flusso.",
+          "uppIds": ["upp-holos"],
           "microExecutorId": "me-node-holos"
         }
       ]
@@ -100,26 +110,31 @@
         {
           "id": "EI_001_01",
           "description": "Elenca le fatture emesse secondo i filtri richiesti.",
+          "uppIds": ["upp-fatturazione"],
           "microExecutorId": "me-java-e-invoice"
         },
         {
           "id": "EI_002_02",
           "description": "Recupera l'esito di trasmissione di una fattura.",
+          "uppIds": ["upp-fatturazione"],
           "microExecutorId": "me-java-e-invoice"
         },
         {
           "id": "EI_003_03",
           "description": "Verifica i dati del destinatario prima dell'invio.",
+          "uppIds": ["upp-clienti", "upp-fatturazione"],
           "microExecutorId": "me-java-e-invoice"
         },
         {
           "id": "EI_004_04",
           "description": "Prepara il documento fattura per la trasmissione.",
+          "uppIds": ["upp-fatturazione"],
           "microExecutorId": "me-java-e-invoice"
         },
         {
           "id": "EI_005_05",
           "description": "Richiede un nuovo invio di una fattura non consegnata.",
+          "uppIds": ["upp-fatturazione"],
           "microExecutorId": "me-java-e-invoice"
         }
       ]

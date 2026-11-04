@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "upps": [
+    {
+      "id": "upp-clienti",
+      "title": "Gestione clienti",
+      "description": "Consultare e verificare le informazioni amministrative dei clienti.",
+      "microExecutorIds": ["me-java-as400-proxy-srvlab", "me-java-e-invoice"]
+    },
+    {
+      "id": "upp-ordini",
+      "title": "Gestione ordini",
+      "description": "Consultare ordini, disponibilita e consegne dei clienti.",
+      "microExecutorIds": ["me-java-as400-proxy-srvlab"]
+    },
+    {
+      "id": "upp-fatturazione",
+      "title": "Fatturazione elettronica",
+      "description": "Gestire e monitorare la trasmissione delle fatture elettroniche.",
+      "microExecutorIds": ["me-java-e-invoice"]
+    },
+    {
+      "id": "upp-holos",
+      "title": "Gestione operativa HOLOS",
+      "description": "Organizzare e consultare le attivita e i flussi operativi.",
+      "microExecutorIds": ["me-node-holos"]
+    }
+  ]
+}

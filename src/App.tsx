@@ -53,6 +53,14 @@ type ApiDefinition = {
   id: string;
   description: string;
   microExecutorId: string;
+  uppIds: string[];
+};
+
+type Upp = {
+  id: string;
+  title: string;
+  description: string;
+  microExecutorIds: string[];
 };
 
 type ApplicationDomain = {
@@ -60,6 +68,7 @@ type ApplicationDomain = {
   title: string;
   description: string;
   microExecutorIds: string[];
+  uppIds: string[];
   uiCustomization: UiCustomization;
 };
 
@@ -73,13 +82,25 @@ type MicroExecutorConfiguration = {
   microExecutors: MicroExecutor[];
 };
 
+type UppConfiguration = {
+  schemaVersion: number;
+  upps: Upp[];
+};
+
 type ApplicationConfiguration = {
   environments: ApplicationDomain[];
   microExecutors: MicroExecutor[];
+  upps: Upp[];
 };
 
 type EnvironmentContext = {
   environment: ApplicationDomain;
+  upps: Upp[];
+  uppCatalog: Upp[];
+};
+
+type UppContext = {
+  upp: Upp;
   microExecutors: MicroExecutor[];
 };
 
@@ -173,23 +194,65 @@ const analysisCases = [
 ];
 
 async function loadConfiguration(): Promise<ApplicationConfiguration> {
-  const [domainsResponse, microExecutorsResponse] = await Promise.all([
+  const [domainsResponse, microExecutorsResponse, uppsResponse] = await Promise.all([
     fetch(`${import.meta.env.BASE_URL}data/application-domains.json`),
     fetch(`${import.meta.env.BASE_URL}data/micro-executors.json`),
+    fetch(`${import.meta.env.BASE_URL}data/upp.json`),
   ]);
 
-  if (!domainsResponse.ok || !microExecutorsResponse.ok) {
+  if (!domainsResponse.ok || !microExecutorsResponse.ok || !uppsResponse.ok) {
     throw new Error("Impossibile caricare la configurazione degli ambienti.");
   }
 
-  const [domainConfiguration, microExecutorConfiguration] = await Promise.all([
+  const [domainConfiguration, microExecutorConfiguration, uppConfiguration] = await Promise.all([
     domainsResponse.json() as Promise<DomainConfiguration>,
     microExecutorsResponse.json() as Promise<MicroExecutorConfiguration>,
+    uppsResponse.json() as Promise<UppConfiguration>,
   ]);
+
+  const microExecutorsById = new Map(
+    microExecutorConfiguration.microExecutors.map((item) => [item.id, item]),
+  );
+  const uppsById = new Map(uppConfiguration.upps.map((item) => [item.id, item]));
+
+  for (const upp of uppConfiguration.upps) {
+    for (const id of upp.microExecutorIds) {
+      if (!microExecutorsById.has(id)) {
+        throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
+      }
+    }
+  }
+  for (const microExecutor of microExecutorConfiguration.microExecutors) {
+    for (const api of microExecutor.apis) {
+      if (api.microExecutorId !== microExecutor.id) {
+        throw new Error(`Micro executor non valido per il servizio ${api.id}.`);
+      }
+      for (const id of api.uppIds) {
+        const upp = uppsById.get(id);
+        if (!upp || !upp.microExecutorIds.includes(microExecutor.id)) {
+          throw new Error(`UPP ${id} non valida per il servizio ${api.id}.`);
+        }
+      }
+    }
+  }
+  for (const environment of domainConfiguration.environments) {
+    for (const id of environment.microExecutorIds) {
+      if (!microExecutorsById.has(id)) {
+        throw new Error(`Micro executor ${id} non trovato per il dominio ${environment.id}.`);
+      }
+    }
+    for (const id of environment.uppIds) {
+      const upp = uppsById.get(id);
+      if (!upp || upp.microExecutorIds.some((executorId) => !environment.microExecutorIds.includes(executorId))) {
+        throw new Error(`UPP ${id} non valida per il dominio ${environment.id}.`);
+      }
+    }
+  }
 
   return {
     environments: domainConfiguration.environments,
     microExecutors: microExecutorConfiguration.microExecutors,
+    upps: uppConfiguration.upps,
   };
 }
 
@@ -321,6 +384,16 @@ function AnalysisLayout() {
                 {analysisCase.title}
               </NavLink>
             ))}
+            <NavLink
+              className={({ isActive }) =>
+                `sidebar-link${isActive ? " is-active" : ""}`
+              }
+              to="micro-executor-datasource"
+              end
+            >
+              <span className="sidebar-link-marker" aria-hidden="true" />
+              Analisi rapporto micro executor e datasource
+            </NavLink>
           </nav>
         </aside>
         <div className="environment-outlet">
@@ -328,6 +401,116 @@ function AnalysisLayout() {
         </div>
       </div>
     </main>
+  );
+}
+
+function AnalysisMicroExecutorDataSource() {
+  return (
+    <section aria-labelledby="data-access-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Analisi · Accesso ai dati</p>
+          <h1 id="data-access-heading">
+            Analisi rapporto micro executor e datasource
+          </h1>
+        </div>
+      </div>
+      <p className="page-intro analysis-intro">
+        Un micro executor condiviso tra domini può gestire i dati in modi
+        diversi. Il Domain-ID identifica il dominio nel contesto della richiesta:
+        la strategia determina come viene usato per accedere al data source.
+      </p>
+      <section className="analysis-comparison" aria-labelledby="data-access-comparison-heading">
+        <h2 id="data-access-comparison-heading">Confronto delle strategie</h2>
+        <div
+          className="analysis-table-wrap"
+          role="region"
+          aria-label="Tabella di confronto delle strategie di accesso ai dati"
+          tabIndex={0}
+        >
+          <table className="data-access-table">
+            <thead>
+              <tr>
+                <th scope="col">Strategia dello sviluppatore</th>
+                <th scope="col">Come usa il Domain-ID</th>
+                <th scope="col">Come gestisce il data source</th>
+                <th scope="col">Quando sceglierla</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">1. Discriminatore (Row-Level)</th>
+                <td>
+                  Come filtro, ad esempio <code>WHERE domain_id = :id</code>,
+                  oppure attraverso la Row-Level Security (RLS) di PostgreSQL.
+                </td>
+                <td>Una connessione al database e tabelle condivise tra domini.</td>
+                <td>
+                  UPP con dati poco complessi ed entità snelle; utile anche per
+                  query aggregate tra domini, quando autorizzate.
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">2. Separazione per schema</th>
+                <td>
+                  Per selezionare lo schema, ad esempio <code>dom_a.ordini</code>,
+                  o impostare il percorso di sessione con{" "}
+                  <code>SET search_path TO dom_a</code>.
+                </td>
+                <td>
+                  Una connessione al database; tabelle separate logicamente
+                  per schema.
+                </td>
+                <td>
+                  Un equilibrio tra separazione dei dati e costo computazionale;
+                  soluzione consigliata per la maggior parte dei casi da valutare
+                  rispetto ai requisiti.
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">3. Database dedicato (Multi-Pool)</th>
+                <td>
+                  Come chiave per selezionare da una mappa il pool di
+                  connessioni del dominio.
+                </td>
+                <td>
+                  Più pool di connessioni verso database logici o fisici
+                  distinti.
+                </td>
+                <td>
+                  Domini con carichi di traffico molto asimmetrici o vincoli
+                  legali e di conformità stringenti.
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">4. Agnostico / Condiviso</th>
+                <td>Non viene usato per selezionare i dati; può comparire nei log di audit.</td>
+                <td>Una connessione al database con dati comuni a tutti i domini.</td>
+                <td>
+                  Microservizi di lookup, tabelle di configurazione globali e
+                  cataloghi comuni.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <div className="analysis-note">
+        <p>
+          In ogni strategia il data source rimane sotto la responsabilità del
+          micro executor: la condivisione tra domini non autorizza altri
+          microservizi ad accedervi direttamente.
+        </p>
+        <p>
+          Il Domain-ID deve essere ricavato da un contesto attendibile e
+          autorizzato. Filtri, policy RLS e permessi vanno applicati
+          coerentemente; con gli schemi, la selezione va controllata e lo
+          stato della connessione gestito in sicurezza anche quando si usano
+          pool. I dati agnostici devono essere realmente condivisibili.
+          Questa pagina descrive strategie progettuali: la POC non le implementa.
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -546,9 +729,8 @@ function EnvironmentLayout() {
 
   const environmentContext: EnvironmentContext = {
     environment,
-    microExecutors: configuration.microExecutors.filter((microExecutor) =>
-      environment.microExecutorIds.includes(microExecutor.id),
-    ),
+    upps: configuration.upps.filter((upp) => environment.uppIds.includes(upp.id)),
+    uppCatalog: configuration.upps,
   };
 
   return (
@@ -592,20 +774,10 @@ function EnvironmentLayout() {
                 className={({ isActive }) =>
                   `sidebar-link${isActive ? " is-active" : ""}`
                 }
-                to="api"
+                to="upp"
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
-                API
-              </NavLink>
-              <NavLink
-                className={({ isActive }) =>
-                  `sidebar-link${isActive ? " is-active" : ""}`
-                }
-                to="data-sources"
-                end
-              >
-                <span className="sidebar-link-marker" aria-hidden="true" />
-                Data sources
+                UPP
               </NavLink>
               <NavLink
                 className={({ isActive }) =>
@@ -694,7 +866,7 @@ function MicroExecutorLayout() {
                 end
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
-                API
+                Servizi
               </NavLink>
               <NavLink
                 className={({ isActive }) =>
@@ -811,39 +983,271 @@ function EnvironmentDetail() {
   );
 }
 
-function MicroExecutorsPage() {
-  const { environment, microExecutors } =
-    useOutletContext<EnvironmentContext>();
+function EnvironmentUpps() {
+  const { environment, upps } = useOutletContext<EnvironmentContext>();
 
   return (
-    <section className="micro-executors-view" aria-label="Micro executors">
-      <p className="page-intro micro-executors-intro">
-        Micro servizi referenziati dal dominio applicativo {environment.title}.
-      </p>
-      <div className="micro-executor-list">
-        {microExecutors.map((microExecutor) => (
-          <Link
-            className="micro-executor-card"
-            key={microExecutor.id}
-            to={`/micro-executors/${microExecutor.id}`}
-          >
-            <div className="micro-executor-card-top">
-              <span className="environment-id">{microExecutor.id}</span>
-              <span className="micro-executor-api-count">
-                {microExecutor.apis.length} API
-              </span>
-            </div>
-            <h3>{microExecutor.title}</h3>
-            <p>{microExecutor.description}</p>
-            <div className="micro-executor-card-action">
-              <span className="micro-executor-url">{microExecutor.url}</span>
-              <span>
-                Apri <span aria-hidden="true">-&gt;</span>
-              </span>
-            </div>
-          </Link>
-        ))}
+    <section aria-labelledby="environment-upp-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo</p>
+          <h2 id="environment-upp-heading">UPP</h2>
+        </div>
+        <div className="upp-heading-actions">
+          <span className="detail-format">{upps.length} UPP</span>
+          <Link className="analysis-button" to="store">UPP Store</Link>
+        </div>
       </div>
+      <p className="page-intro api-intro">
+        UPP associate al dominio applicativo {environment.title}.
+      </p>
+      {upps.length === 0 ? (
+        <p className="page-intro">Nessuna UPP associata.</p>
+      ) : (
+        <div className="micro-executor-list">
+          {upps.map((upp) => <UppCard key={upp.id} upp={upp} />)}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function UppCard({ upp, active }: { upp: Upp; active?: boolean }) {
+  return (
+    <Link className="micro-executor-card" to={`/upp/${upp.id}`}>
+      <div className="micro-executor-card-top">
+        <span className="environment-id">{upp.id}</span>
+        {active === undefined ? (
+          <span className="micro-executor-api-count">
+            {upp.microExecutorIds.length} micro executor
+          </span>
+        ) : (
+          <span className={`upp-status${active ? " is-active" : ""}`}>
+            {active ? "Attiva" : "Non attiva"}
+          </span>
+        )}
+      </div>
+      <h3>{upp.title}</h3>
+      <p>{upp.description}</p>
+      <div className="micro-executor-card-action">
+        <span>UPP</span>
+        <span>Apri <span aria-hidden="true">-&gt;</span></span>
+      </div>
+    </Link>
+  );
+}
+
+function UppStore() {
+  const { environment, uppCatalog } = useOutletContext<EnvironmentContext>();
+
+  return (
+    <section aria-labelledby="upp-store-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="upp-store-heading">UPP Store</h2>
+        </div>
+        <Link className="message-link" to={`/applicative-domain/${environment.id}/upp`}>
+          Torna alle UPP
+        </Link>
+      </div>
+      <p className="page-intro api-intro">
+        Catalogo completo delle UPP. Lo stato indica se sono associate al dominio
+        {` ${environment.title}`}; questa vista è in sola lettura.
+      </p>
+      {uppCatalog.length === 0 ? (
+        <p className="page-intro">Nessuna UPP presente nel catalogo.</p>
+      ) : (
+        <div className="micro-executor-list">
+          {uppCatalog.map((upp) => (
+            <UppCard key={upp.id} upp={upp} active={environment.uppIds.includes(upp.id)} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function UppLayout() {
+  const configuration = useOutletContext<ApplicationConfiguration>();
+  const { uppId } = useParams();
+  const upp = configuration.upps.find((item) => item.id === uppId);
+  const [isJsonOpen, setIsJsonOpen] = useState(false);
+
+  if (!upp) {
+    return <NotFoundPage />;
+  }
+
+  const microExecutors = upp.microExecutorIds.map((id) => {
+    const microExecutor = configuration.microExecutors.find((item) => item.id === id);
+    if (!microExecutor) {
+      throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
+    }
+    return microExecutor;
+  });
+  const context: UppContext = { upp, microExecutors };
+
+  return (
+    <main className="site-main environment-main">
+      <div className="environment-breadcrumb">
+        <Link to="/">Tutti gli ambienti</Link>
+        <span aria-hidden="true">/</span>
+        <span>{upp.id}</span>
+      </div>
+      <div className="environment-layout">
+        <aside className="environment-sidebar" aria-label="Menu UPP">
+          <section className="environment-summary-card" aria-labelledby="upp-title">
+            <p className="eyebrow">UPP</p>
+            <h1 id="upp-title">{upp.title}</h1>
+            <button className="json-trigger" type="button" onClick={() => setIsJsonOpen(true)}>
+              Mostra JSON
+            </button>
+          </section>
+          <div>
+            <p className="sidebar-caption">Menu UPP</p>
+            <nav className="sidebar-nav" aria-label="Viste UPP">
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="dettaglio" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Dettaglio
+              </NavLink>
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="micro-executors" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Micro executors
+              </NavLink>
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="servizi" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Servizi
+              </NavLink>
+            </nav>
+          </div>
+        </aside>
+        <div className="environment-outlet">
+          <Outlet context={context} />
+        </div>
+      </div>
+      {isJsonOpen && (
+        <JsonDialog title={upp.title} id={upp.id} value={upp} onClose={() => setIsJsonOpen(false)} />
+      )}
+    </main>
+  );
+}
+
+function UppDetail() {
+  const { upp } = useOutletContext<UppContext>();
+
+  return (
+    <section className="detail-view" aria-labelledby="upp-detail-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Anagrafica UPP</p>
+          <h2 id="upp-detail-heading">Dettaglio</h2>
+        </div>
+      </div>
+      <dl className="detail-list">
+        <div className="detail-row">
+          <dt>ID</dt>
+          <dd className="detail-value detail-id">{upp.id}</dd>
+        </div>
+        <div className="detail-row">
+          <dt>Titolo</dt>
+          <dd className="detail-value">{upp.title}</dd>
+        </div>
+        <div className="detail-row">
+          <dt>Obiettivo</dt>
+          <dd className="detail-value detail-description">{upp.description}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
+function UppServices() {
+  const { upp, microExecutors } = useOutletContext<UppContext>();
+  const apis = microExecutors.flatMap((microExecutor) =>
+    microExecutor.apis.filter((api) => api.uppIds.includes(upp.id)),
+  );
+
+  return (
+    <section aria-labelledby="upp-services-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">UPP · {upp.title}</p>
+          <h2 id="upp-services-heading">Servizi</h2>
+        </div>
+        <span className="detail-format">{apis.length} servizi</span>
+      </div>
+      <p className="page-intro api-intro">
+        Servizi esplicitamente associati a questa UPP nei micro executor.
+      </p>
+      {apis.length === 0 ? (
+        <p className="page-intro">Nessun servizio associato.</p>
+      ) : (
+        <div className="api-list">
+          {apis.map((api) => (
+            <dl className="api-row" key={`${api.microExecutorId}-${api.id}`}>
+              <div>
+                <dt>ID</dt>
+                <dd className="detail-value detail-id">{api.id}</dd>
+              </div>
+              <div>
+                <dt>Descrizione</dt>
+                <dd className="detail-value">{api.description}</dd>
+              </div>
+              <div>
+                <dt>Micro executor</dt>
+                <dd className="detail-value api-executor-id">
+                  <Link className="data-source-owner" to={`/micro-executors/${api.microExecutorId}/api`}>
+                    {api.microExecutorId}
+                  </Link>
+                </dd>
+              </div>
+            </dl>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function UppMicroExecutors() {
+  const { upp, microExecutors } = useOutletContext<UppContext>();
+
+  return (
+    <section aria-labelledby="upp-executors-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">UPP · {upp.title}</p>
+          <h2 id="upp-executors-heading">Micro executors</h2>
+        </div>
+        <span className="detail-format">{microExecutors.length} micro executor</span>
+      </div>
+      <p className="page-intro api-intro">
+        Micro executor associati a questa UPP.
+      </p>
+      {microExecutors.length === 0 ? (
+        <p className="page-intro">Nessun micro executor associato.</p>
+      ) : (
+        <div className="micro-executor-list">
+          {microExecutors.map((microExecutor) => (
+            <Link
+              className="micro-executor-card"
+              key={microExecutor.id}
+              to={`/micro-executors/${microExecutor.id}`}
+            >
+              <div className="micro-executor-card-top">
+                <span className="environment-id">{microExecutor.id}</span>
+                <span className="micro-executor-api-count">{microExecutor.apis.length} servizi</span>
+              </div>
+              <h3>{microExecutor.title}</h3>
+              <p>{microExecutor.description}</p>
+              <div className="micro-executor-card-action">
+                <span className="micro-executor-url">{microExecutor.url}</span>
+                <span>Apri <span aria-hidden="true">-&gt;</span></span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -861,7 +1265,7 @@ function MicroExecutorDetail() {
           <p className="eyebrow">Configurazione micro executor</p>
           <h2 id="micro-executor-detail-heading">Dettaglio</h2>
         </div>
-        <span className="detail-format">{microExecutor.apis.length} API</span>
+        <span className="detail-format">{microExecutor.apis.length} servizi</span>
       </div>
       <dl className="detail-list">
         <div className="detail-row">
@@ -900,7 +1304,7 @@ function MicroExecutorApis() {
       <div className="detail-heading">
         <div>
           <p className="eyebrow">Servizi associati</p>
-          <h2 id="micro-executor-api-heading">API</h2>
+          <h2 id="micro-executor-api-heading">Servizi</h2>
         </div>
         <span className="detail-format">
           {String(microExecutor.apis.length).padStart(2, "0")} servizi
@@ -978,27 +1382,6 @@ function DataSourcesList({
   );
 }
 
-function EnvironmentDataSources() {
-  const { environment, microExecutors } =
-    useOutletContext<EnvironmentContext>();
-
-  return (
-    <section aria-labelledby="data-sources-heading">
-      <div className="detail-heading">
-        <div>
-          <p className="eyebrow">Dominio applicativo</p>
-          <h2 id="data-sources-heading">Data sources</h2>
-        </div>
-      </div>
-      <p className="page-intro api-intro">
-        Data source ereditati dai micro servizi associati al dominio applicativo{" "}
-        {environment.title}.
-      </p>
-      <DataSourcesList microExecutors={microExecutors} />
-    </section>
-  );
-}
-
 function MicroExecutorDataSources() {
   const microExecutor = useOutletContext<MicroExecutor>();
 
@@ -1014,80 +1397,6 @@ function MicroExecutorDataSources() {
         Data source di cui {microExecutor.title} &egrave; responsabile.
       </p>
       <DataSourcesList microExecutors={[microExecutor]} />
-    </section>
-  );
-}
-
-function ApiPage() {
-  const environmentContext = useOutletContext<EnvironmentContext>();
-  const { microExecutors } = environmentContext;
-  const apiCount = microExecutors.reduce(
-    (count, microExecutor) => count + microExecutor.apis.length,
-    0,
-  );
-
-  return (
-    <section className="api-view" aria-labelledby="api-heading">
-      <div className="detail-heading">
-        <div>
-          <p className="eyebrow">Logica applicativa</p>
-          <h2 id="api-heading">API</h2>
-        </div>
-      </div>
-      <nav className="api-tabs" aria-label="Viste API">
-        <NavLink
-          className={({ isActive }) => `api-tab${isActive ? " is-active" : ""}`}
-          to="servizi"
-          end
-        >
-          Servizi
-          <span className="api-tab-count">{apiCount}</span>
-        </NavLink>
-        <NavLink
-          className={({ isActive }) => `api-tab${isActive ? " is-active" : ""}`}
-          to="micro-executors"
-          end
-        >
-          Micro executors
-          <span className="api-tab-count">{microExecutors.length}</span>
-        </NavLink>
-      </nav>
-      <Outlet context={environmentContext} />
-    </section>
-  );
-}
-
-function ApiServicesPage() {
-  const { environment, microExecutors } =
-    useOutletContext<EnvironmentContext>();
-  const apis = microExecutors.flatMap((microExecutor) => microExecutor.apis);
-
-  return (
-    <section className="api-services-view" aria-label="Servizi API">
-      <p className="page-intro api-intro">
-        API contenute nei micro executors associati al dominio applicativo{" "}
-        {environment.title}.
-      </p>
-      <div className="api-list">
-        {apis.map((api) => (
-          <dl className="api-row" key={`${api.microExecutorId}-${api.id}`}>
-            <div>
-              <dt>ID</dt>
-              <dd className="detail-value detail-id">{api.id}</dd>
-            </div>
-            <div>
-              <dt>Descrizione</dt>
-              <dd className="detail-value">{api.description}</dd>
-            </div>
-            <div>
-              <dt>Micro executor</dt>
-              <dd className="detail-value api-executor-id">
-                {api.microExecutorId}
-              </dd>
-            </div>
-          </dl>
-        ))}
-      </div>
     </section>
   );
 }
@@ -1203,10 +1512,10 @@ function ConfigurationLoading() {
 function NotFoundPage() {
   return (
     <main className="site-main message-page">
-      <p className="eyebrow">Ambiente non trovato</p>
+      <p className="eyebrow">Risorsa non trovata</p>
       <h1>Configurazione non disponibile</h1>
       <p className="page-intro">
-        L'ambiente richiesto non &egrave; presente tra i domini configurati.
+        La risorsa richiesta non &egrave; presente nella configurazione.
       </p>
       <Link className="message-link" to="/">
         Torna agli ambienti
@@ -1252,10 +1561,24 @@ const router = createBrowserRouter(
               path: "concetti-fondamentali",
               element: <AnalysisConceptsPage />,
             },
+            {
+              path: "micro-executor-datasource",
+              element: <AnalysisMicroExecutorDataSource />,
+            },
             ...analysisCases.map((analysisCase) => ({
               path: analysisCase.path,
               element: <AnalysisCasePage analysisCase={analysisCase} />,
             })),
+          ],
+        },
+        {
+          path: "upp/:uppId",
+          element: <UppLayout />,
+          children: [
+            { index: true, element: <Navigate to="dettaglio" replace /> },
+            { path: "dettaglio", element: <UppDetail /> },
+            { path: "micro-executors", element: <UppMicroExecutors /> },
+            { path: "servizi", element: <UppServices /> },
           ],
         },
         {
@@ -1274,16 +1597,8 @@ const router = createBrowserRouter(
           children: [
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <EnvironmentDetail /> },
-            { path: "data-sources", element: <EnvironmentDataSources /> },
-            {
-              path: "api",
-              element: <ApiPage />,
-              children: [
-                { index: true, element: <Navigate to="servizi" replace /> },
-                { path: "servizi", element: <ApiServicesPage /> },
-                { path: "micro-executors", element: <MicroExecutorsPage /> },
-              ],
-            },
+            { path: "upp", element: <EnvironmentUpps /> },
+            { path: "upp/store", element: <UppStore /> },
             {
               path: "ui-personalizzazione",
               element: <UiPersonalizationPage />,
