@@ -63,12 +63,18 @@ type Upp = {
   microExecutorIds: string[];
 };
 
+type Authorization = {
+  key: string;
+  allowed: boolean;
+};
+
 type ApplicationDomain = {
   id: string;
   title: string;
   description: string;
   microExecutorIds: string[];
   uppIds: string[];
+  authorizations: Authorization[];
   uiCustomization: UiCustomization;
 };
 
@@ -236,6 +242,18 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     }
   }
   for (const environment of domainConfiguration.environments) {
+    if (
+      !Array.isArray(environment.authorizations) ||
+      environment.authorizations.some(
+        (authorization) =>
+          !authorization ||
+          typeof authorization.key !== "string" ||
+          !authorization.key.trim() ||
+          typeof authorization.allowed !== "boolean",
+      )
+    ) {
+      throw new Error(`Autorizzazioni non valide per il dominio ${environment.id}.`);
+    }
     for (const id of environment.microExecutorIds) {
       if (!microExecutorsById.has(id)) {
         throw new Error(`Micro executor ${id} non trovato per il dominio ${environment.id}.`);
@@ -783,6 +801,16 @@ function EnvironmentLayout() {
                 className={({ isActive }) =>
                   `sidebar-link${isActive ? " is-active" : ""}`
                 }
+                to="autorizzazioni"
+                end
+              >
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Autorizzazioni
+              </NavLink>
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " is-active" : ""}`
+                }
                 to="ui-personalizzazione"
                 end
               >
@@ -979,6 +1007,81 @@ function EnvironmentDetail() {
           </dd>
         </div>
       </dl>
+    </section>
+  );
+}
+
+function EnvironmentAuthorizations() {
+  const { environment } = useOutletContext<EnvironmentContext>();
+  const { authorizations } = environment;
+
+  return (
+    <section aria-labelledby="authorizations-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="authorizations-heading">Autorizzazioni</h2>
+        </div>
+        <span className="detail-format">
+          {authorizations.length} {authorizations.length === 1 ? "autorizzazione" : "autorizzazioni"}
+        </span>
+      </div>
+      <p className="page-intro api-intro">
+        Regole di autorizzazione definite nella configurazione del dominio.
+        Ogni chiave può essere consentita o negata.
+      </p>
+      {authorizations.length === 0 ? (
+        <p className="page-intro">Nessuna autorizzazione configurata.</p>
+      ) : (
+        <ul className="authorization-list" aria-label="Autorizzazioni configurate">
+          {authorizations.map((authorization, index) => (
+            <li key={`${index}-${authorization.key}`}>
+              <code>{authorization.key}</code>
+              <span className={`authorization-status${authorization.allowed ? " is-allowed" : " is-denied"}`}>
+                {authorization.allowed ? "Consentita" : "Negata"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <section className="analysis-comparison" aria-labelledby="authorization-formats-heading">
+        <h3 id="authorization-formats-heading">Livelli e formati</h3>
+        <div className="analysis-table-wrap" role="region" aria-label="Formati delle autorizzazioni" tabIndex={0}>
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Livello</th>
+                <th scope="col">Formato</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Intero dominio</th>
+                <td><code>*</code></td>
+              </tr>
+              <tr>
+                <th scope="row">UPP</th>
+                <td><code>{"<id_upp>"}</code></td>
+              </tr>
+              <tr>
+                <th scope="row">Servizio</th>
+                <td><code>{"<id_upp>.<id_servizio>"}</code></td>
+              </tr>
+              <tr>
+                <th scope="row">Funzione o metodo</th>
+                <td><code>{"<id_upp>.<id_servizio>-<funzione-metodo>"}</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <p className="analysis-note">
+        I valori sono esempi consultabili in sola lettura: le regole consentite
+        e negate possono rappresentare rispettivamente whitelist e blacklist.
+        La POC non verifica né applica queste autorizzazioni e non definisce
+        precedenza o comportamento predefinito; i nomi delle funzioni sono
+        illustrativi.
+      </p>
     </section>
   );
 }
@@ -1599,6 +1702,7 @@ const router = createBrowserRouter(
             { path: "dettaglio", element: <EnvironmentDetail /> },
             { path: "upp", element: <EnvironmentUpps /> },
             { path: "upp/store", element: <UppStore /> },
+            { path: "autorizzazioni", element: <EnvironmentAuthorizations /> },
             {
               path: "ui-personalizzazione",
               element: <UiPersonalizationPage />,

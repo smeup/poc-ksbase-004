@@ -21,6 +21,17 @@ condivisa può essere associata a più domini. Ogni micro executor riferito dall
 UPP deve essere associato anche ai domini che la utilizzano; i riferimenti
 incoerenti impediscono il caricamento della configurazione.
 
+## Autorizzazioni
+
+Ogni dominio definisce `authorizations` in
+`public/data/application-domains.json` come lista di oggetti con `key` (stringa)
+e `allowed` (booleano): `true` per consentire e `false` per negare. I formati
+illustrati sono `*` (dominio), `<id_upp>`, `<id_upp>.<id_servizio>` e
+`<id_upp>.<id_servizio>-<funzione-metodo>`. La pagina del dominio mostra i
+valori in sola lettura e verifica che la struttura sia valida, ma non applica
+controlli di accesso né definisce precedenze o comportamento predefinito. I
+nomi delle funzioni negli esempi sono illustrativi.
+
 ## Analisi
 
 La pagina introduttiva presenta le relazioni tra UPP, microservizi e data

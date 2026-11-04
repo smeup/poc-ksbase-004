@@ -7,6 +7,11 @@
       "description": "Ambiente applicativo per la gestione dei processi amministrativi e contabili.",
       "microExecutorIds": ["me-java-as400-proxy-srvlab", "me-java-e-invoice"],
       "uppIds": ["upp-clienti", "upp-ordini", "upp-fatturazione"],
+      "authorizations": [
+        { "key": "upp-clienti", "allowed": true },
+        { "key": "upp-ordini.AS_003_03", "allowed": true },
+        { "key": "upp-fatturazione.EI_002_02-consulta", "allowed": true }
+      ],
       "uiCustomization": {
         "theme": {
           "id": "default",
@@ -34,6 +39,10 @@
       "description": "Ambiente applicativo per l'organizzazione dei servizi e dei flussi operativi.",
       "microExecutorIds": ["me-node-holos", "me-java-e-invoice"],
       "uppIds": ["upp-holos", "upp-fatturazione"],
+      "authorizations": [
+        { "key": "*", "allowed": true },
+        { "key": "upp-holos.HO_003_03", "allowed": false }
+      ],
       "uiCustomization": {
         "theme": {
           "id": "default",
