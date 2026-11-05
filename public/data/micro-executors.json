@@ -2,6 +2,33 @@
   "schemaVersion": 1,
   "microExecutors": [
     {
+      "id": "me-java-as400proxy",
+      "title": "Proxy AS400",
+      "description": "Micro executor per i servizi AS400.",
+      "url": "http://me-java-as400proxy-svc",
+      "dataSources": [],
+      "apis": [
+        {
+          "id": "LOA10_SE",
+          "description": "Lista oggetti.",
+          "uppIds": ["upp-as400-connector"],
+          "microExecutorId": "me-java-as400proxy"
+        },
+        {
+          "id": "WESER_23",
+          "description": "Tooltip.",
+          "uppIds": ["upp-as400-connector"],
+          "microExecutorId": "me-java-as400proxy"
+        },
+        {
+          "id": "JATRE_18C",
+          "description": "Interprete schede.",
+          "uppIds": ["upp-as400-connector"],
+          "microExecutorId": "me-java-as400proxy"
+        }
+      ]
+    },
+    {
       "id": "me-java-as400-proxy-srvlab",
       "title": "Proxy AS400 SRVLAB",
       "description": "Proxy verso AS400 srvlab01.smeup.com.",
@@ -61,6 +88,18 @@
         }
       ],
       "apis": [
+        {
+          "id": "HO_000_01",
+          "description": "Gestisce le classi di HOLOS L64.",
+          "uppIds": ["upp-l64-connector"],
+          "microExecutorId": "me-node-holos"
+        },
+        {
+          "id": "HO_000_02",
+          "description": "Gestisce le istanze di HOLOS L64.",
+          "uppIds": ["upp-l64-connector"],
+          "microExecutorId": "me-node-holos"
+        },
         {
           "id": "HO_001_01",
           "description": "Recupera il dettaglio di un ordine di lavoro.",

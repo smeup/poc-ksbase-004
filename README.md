@@ -1,5 +1,23 @@
 # React + TypeScript + Vite
 
+## Istanze Grain e domini applicativi
+
+L'anagrafica mock delle istanze è in `public/data/grain-instances.json`.
+Ogni dominio in `public/data/application-domains.json` specifica l'ID
+dell'istanza di appartenenza nell'attributo obbligatorio `grainInstance`.
+La home permette di scegliere un'istanza e mostra i soli domini associati;
+un riferimento a un'istanza inesistente impedisce il caricamento della
+configurazione. Gli URL diretti dei domini rimangono disponibili.
+
+Smeup SI contiene Smeup BSA (`ges_10adv`), Smeup LAB (`ges_49adv`) e
+Smeup ICS (`ges_11adv`). Tutti utilizzano la UPP AS400 Connector, con il
+micro executor `me-java-as400proxy` e i servizi `LOA10_SE`, `WESER_23` e
+`JATRE_18C`. HOLOS SaaS contiene Cliente A e Cliente B, entrambi associati
+alla UPP condivisa L64 Connector. La UPP usa
+`me-node-holos` e i servizi `HO_000_01` (classi) e `HO_000_02` (istanze).
+Queste associazioni sono dati mock: non configurano connessioni separate né
+garantiscono isolamento dei dati fra i clienti.
+
 ## Data sources
 
 I data source mock sono definiti in `public/data/micro-executors.json` nell'array

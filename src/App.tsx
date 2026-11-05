@@ -68,14 +68,26 @@ type Authorization = {
   allowed: boolean;
 };
 
+type GrainInstance = {
+  id: string;
+  title: string;
+  description: string;
+};
+
 type ApplicationDomain = {
   id: string;
+  grainInstance: string;
   title: string;
   description: string;
   microExecutorIds: string[];
   uppIds: string[];
   authorizations: Authorization[];
   uiCustomization: UiCustomization;
+};
+
+type GrainInstanceConfiguration = {
+  schemaVersion: number;
+  grainInstances: GrainInstance[];
 };
 
 type DomainConfiguration = {
@@ -94,6 +106,7 @@ type UppConfiguration = {
 };
 
 type ApplicationConfiguration = {
+  grainInstances: GrainInstance[];
   environments: ApplicationDomain[];
   microExecutors: MicroExecutor[];
   upps: Upp[];
@@ -200,17 +213,19 @@ const analysisCases = [
 ];
 
 async function loadConfiguration(): Promise<ApplicationConfiguration> {
-  const [domainsResponse, microExecutorsResponse, uppsResponse] = await Promise.all([
+  const [instancesResponse, domainsResponse, microExecutorsResponse, uppsResponse] = await Promise.all([
+    fetch(`${import.meta.env.BASE_URL}data/grain-instances.json`),
     fetch(`${import.meta.env.BASE_URL}data/application-domains.json`),
     fetch(`${import.meta.env.BASE_URL}data/micro-executors.json`),
     fetch(`${import.meta.env.BASE_URL}data/upp.json`),
   ]);
 
-  if (!domainsResponse.ok || !microExecutorsResponse.ok || !uppsResponse.ok) {
-    throw new Error("Impossibile caricare la configurazione degli ambienti.");
+  if (!instancesResponse.ok || !domainsResponse.ok || !microExecutorsResponse.ok || !uppsResponse.ok) {
+    throw new Error("Impossibile caricare la configurazione delle istanze e degli ambienti.");
   }
 
-  const [domainConfiguration, microExecutorConfiguration, uppConfiguration] = await Promise.all([
+  const [instanceConfiguration, domainConfiguration, microExecutorConfiguration, uppConfiguration] = await Promise.all([
+    instancesResponse.json() as Promise<GrainInstanceConfiguration>,
     domainsResponse.json() as Promise<DomainConfiguration>,
     microExecutorsResponse.json() as Promise<MicroExecutorConfiguration>,
     uppsResponse.json() as Promise<UppConfiguration>,
@@ -220,6 +235,14 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     microExecutorConfiguration.microExecutors.map((item) => [item.id, item]),
   );
   const uppsById = new Map(uppConfiguration.upps.map((item) => [item.id, item]));
+  const instanceIds = new Set<string>();
+
+  for (const instance of instanceConfiguration.grainInstances) {
+    if (typeof instance.id !== "string" || !instance.id.trim() || instanceIds.has(instance.id)) {
+      throw new Error(`ID istanza Grain non valido o duplicato: ${instance.id}.`);
+    }
+    instanceIds.add(instance.id);
+  }
 
   for (const upp of uppConfiguration.upps) {
     for (const id of upp.microExecutorIds) {
@@ -242,6 +265,9 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     }
   }
   for (const environment of domainConfiguration.environments) {
+    if (typeof environment.grainInstance !== "string" || !instanceIds.has(environment.grainInstance)) {
+      throw new Error(`Istanza Grain non valida per il dominio ${environment.id}.`);
+    }
     if (
       !Array.isArray(environment.authorizations) ||
       environment.authorizations.some(
@@ -268,6 +294,7 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
   }
 
   return {
+    grainInstances: instanceConfiguration.grainInstances,
     environments: domainConfiguration.environments,
     microExecutors: microExecutorConfiguration.microExecutors,
     upps: uppConfiguration.upps,
@@ -284,12 +311,12 @@ function AppShell() {
           <Link
             className="brand"
             to="/"
-            aria-label="Dominio applicativo, pagina iniziale"
+            aria-label="Grain, pagina iniziale"
           >
             <span className="brand-mark" aria-hidden="true">
-              DA
+              G
             </span>
-            <span className="brand-name">Dominio applicativo</span>
+            <span className="brand-name">Grain</span>
           </Link>
           <div className="topbar-meta">
             <span className="status-dot" aria-hidden="true" />
@@ -304,24 +331,24 @@ function AppShell() {
   );
 }
 
-function EnvironmentSelection() {
-  const { environments } = useOutletContext<ApplicationConfiguration>();
+function GrainInstanceSelection() {
+  const { grainInstances, environments } = useOutletContext<ApplicationConfiguration>();
 
   return (
     <main className="site-main">
-      <p className="eyebrow page-eyebrow">Configurazione / ambienti</p>
+      <p className="eyebrow page-eyebrow">Configurazione / istanze Grain</p>
       <div className="page-heading">
         <div>
-          <h1>Scegli un ambiente</h1>
+          <h1>Scegli un'istanza Grain</h1>
           <p className="page-intro">
-            Apri un ambiente applicativo per consultare il dominio e la
+            Seleziona un'istanza per consultare i suoi domini applicativi e la
             configurazione associata.
           </p>
         </div>
         <div className="page-heading-actions">
           <div className="environment-total">
-            <span>{String(environments.length).padStart(2, "0")}</span>
-            <span>ambienti disponibili</span>
+            <span>{String(grainInstances.length).padStart(2, "0")}</span>
+            <span>istanze disponibili</span>
           </div>
           <Link className="analysis-button" to="/analisi">
             Analisi
@@ -330,29 +357,30 @@ function EnvironmentSelection() {
       </div>
 
       <div className="section-rule">
-        <span>Domini registrati</span>
+        <span>Istanze registrate</span>
         <span>Seleziona per entrare</span>
       </div>
 
       <div className="environment-grid">
-        {environments.map((environment, index) => (
+        {grainInstances.map((instance, index) => (
           <Link
             className="environment-card"
-            key={environment.id}
-            to={`/applicative-domain/${environment.id}`}
+            key={instance.id}
+            to={`/grain-instances/${instance.id}`}
           >
             <div className="environment-card-top">
-              <span className="environment-id">{environment.id}</span>
+              <span className="environment-id">{instance.id}</span>
               <span className="environment-index">
                 {String(index + 1).padStart(2, "0")}
               </span>
             </div>
             <div className="environment-card-copy">
-              <h2>{environment.title}</h2>
-              <p>{environment.description}</p>
+              <h2>{instance.title}</h2>
+              <p>{instance.description}</p>
             </div>
             <div className="environment-card-action">
-              Apri ambiente <span aria-hidden="true">-&gt;</span>
+              <span>{environments.filter((environment) => environment.grainInstance === instance.id).length} domini</span>
+              Apri istanza <span aria-hidden="true">-&gt;</span>
             </div>
           </Link>
         ))}
@@ -361,11 +389,77 @@ function EnvironmentSelection() {
   );
 }
 
+function EnvironmentSelection() {
+  const { grainInstances, environments } = useOutletContext<ApplicationConfiguration>();
+  const { instanceId } = useParams();
+  const instance = grainInstances.find((item) => item.id === instanceId);
+
+  if (!instance) {
+    return <NotFoundPage />;
+  }
+
+  const instanceEnvironments = environments.filter(
+    (environment) => environment.grainInstance === instance.id,
+  );
+
+  return (
+    <main className="site-main">
+      <div className="environment-breadcrumb">
+        <Link to="/">Istanze Grain</Link>
+        <span aria-hidden="true">/</span>
+        <span>{instance.title}</span>
+      </div>
+      <p className="eyebrow page-eyebrow">Istanza Grain / domini applicativi</p>
+      <div className="page-heading">
+        <div>
+          <h1>{instance.title}</h1>
+          <p className="page-intro">Scegli un dominio applicativo di questa istanza.</p>
+        </div>
+        <div className="environment-total">
+          <span>{String(instanceEnvironments.length).padStart(2, "0")}</span>
+          <span>domini disponibili</span>
+        </div>
+      </div>
+      <div className="section-rule">
+        <span>Domini registrati</span>
+        <span>Seleziona per entrare</span>
+      </div>
+      {instanceEnvironments.length === 0 ? (
+        <p className="page-intro">Nessun dominio associato a questa istanza.</p>
+      ) : (
+        <div className="environment-grid">
+          {instanceEnvironments.map((environment, index) => (
+            <Link
+              className="environment-card"
+              key={environment.id}
+              to={`/applicative-domain/${environment.id}`}
+            >
+              <div className="environment-card-top">
+                <span className="environment-id">{environment.id}</span>
+                <span className="environment-index">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+              </div>
+              <div className="environment-card-copy">
+                <h2>{environment.title}</h2>
+                <p>{environment.description}</p>
+              </div>
+              <div className="environment-card-action">
+                Apri ambiente <span aria-hidden="true">-&gt;</span>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </main>
+  );
+}
+
 function AnalysisLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Tutti gli ambienti</Link>
+        <Link to="/">Istanze Grain</Link>
         <span aria-hidden="true">/</span>
         <span>Analisi</span>
       </div>
@@ -744,6 +838,12 @@ function EnvironmentLayout() {
   if (!environment) {
     return <NotFoundPage />;
   }
+  const instance = configuration.grainInstances.find(
+    (item) => item.id === environment.grainInstance,
+  );
+  if (!instance) {
+    throw new Error(`Istanza Grain non trovata per il dominio ${environment.id}.`);
+  }
 
   const environmentContext: EnvironmentContext = {
     environment,
@@ -754,7 +854,9 @@ function EnvironmentLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Tutti gli ambienti</Link>
+        <Link to="/">Istanze Grain</Link>
+        <span aria-hidden="true">/</span>
+        <Link to={`/grain-instances/${instance.id}`}>{instance.title}</Link>
         <span aria-hidden="true">/</span>
         <span>{environment.id}</span>
       </div>
@@ -852,7 +954,7 @@ function MicroExecutorLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Tutti gli ambienti</Link>
+        <Link to="/">Istanze Grain</Link>
         <span aria-hidden="true">/</span>
         <span>{microExecutor.id}</span>
       </div>
@@ -995,6 +1097,12 @@ function EnvironmentDetail() {
         <div className="detail-row">
           <dt>ID</dt>
           <dd className="detail-value detail-id">{environment.id}</dd>
+        </div>
+        <div className="detail-row">
+          <dt>grainInstance</dt>
+          <dd className="detail-value detail-id">
+            <Link to={`/grain-instances/${environment.grainInstance}`}>{environment.grainInstance}</Link>
+          </dd>
         </div>
         <div className="detail-row">
           <dt>Title</dt>
@@ -1193,7 +1301,7 @@ function UppLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Tutti gli ambienti</Link>
+        <Link to="/">Istanze Grain</Link>
         <span aria-hidden="true">/</span>
         <span>{upp.id}</span>
       </div>
@@ -1606,7 +1714,7 @@ function UiPersonalizationPage() {
 function ConfigurationLoading() {
   return (
     <main className="site-main message-page" aria-live="polite">
-      <p className="eyebrow">Configurazione / ambienti</p>
+      <p className="eyebrow">Configurazione / istanze e ambienti</p>
       <h1>Caricamento dati</h1>
     </main>
   );
@@ -1621,7 +1729,7 @@ function NotFoundPage() {
         La risorsa richiesta non &egrave; presente nella configurazione.
       </p>
       <Link className="message-link" to="/">
-        Torna agli ambienti
+        Torna alle istanze
       </Link>
     </main>
   );
@@ -1633,7 +1741,7 @@ function ConfigurationError() {
       <p className="eyebrow">Errore di configurazione</p>
       <h1>Dati non disponibili</h1>
       <p className="page-intro">
-        Non &egrave; stato possibile caricare i dati degli ambienti.
+        Non &egrave; stato possibile caricare i dati delle istanze e degli ambienti.
       </p>
       <a className="message-link" href={import.meta.env.BASE_URL}>
         Ricarica la pagina
@@ -1651,7 +1759,8 @@ const router = createBrowserRouter(
       element: <AppShell />,
       errorElement: <ConfigurationError />,
       children: [
-        { index: true, element: <EnvironmentSelection /> },
+        { index: true, element: <GrainInstanceSelection /> },
+        { path: "grain-instances/:instanceId", element: <EnvironmentSelection /> },
         {
           path: "analisi",
           element: <AnalysisLayout />,
