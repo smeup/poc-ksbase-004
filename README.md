@@ -10,10 +10,10 @@ un riferimento a un'istanza inesistente impedisce il caricamento della
 configurazione. Gli URL diretti dei domini rimangono disponibili.
 
 Smeup SI contiene Smeup BSA (`ges_10adv`), Smeup LAB (`ges_49adv`) e
-Smeup ICS (`ges_11adv`). Tutti utilizzano la UPP AS400 Connector, con il
+Smeup ICS (`ges_11adv`). Tutti utilizzano la UPP AS400 Connector (`B£_000`), con il
 micro executor `me-java-as400proxy` e i servizi `LOA10_SE`, `WESER_23` e
 `JATRE_18C`. HOLOS SaaS contiene Cliente A e Cliente B, entrambi associati
-alla UPP condivisa L64 Connector. La UPP usa
+alla UPP condivisa L64 Connector (`HO_000`). La UPP usa
 `me-node-holos` e i servizi `HO_000_01` (classi) e `HO_000_02` (istanze).
 Queste associazioni sono dati mock: non configurano connessioni separate né
 garantiscono isolamento dei dati fra i clienti.
@@ -49,6 +49,30 @@ data source dei nuovi micro executor standard non sono specificati; gli URL
 sono esempi mock e non rappresentano endpoint verificati.
 Nella lista UPP e nello Store le UPP standard sono raccolte sotto le altre in
 una sezione espandibile, inizialmente chiusa.
+
+## Schemi di configurazione
+
+Ogni micro executor definisce in `uppConfigurationSchemas` uno schema JSON per
+ciascuna UPP che lo utilizza, indicizzata per ID UPP. Gli schemi sono esempi
+mock, non la documentazione di parametri effettivi. La configurazione
+verifica che ogni associazione UPP/micro executor abbia uno schema e che non
+esistano riferimenti a UPP non associate.
+
+La voce «Configurazione» del dominio mostra in sola lettura tutti gli schemi
+delle UPP associate, incluse quelle standard ereditate; le UPP specifiche
+precedono quelle standard. La stessa vista è disponibile nella UPP; il micro
+executor mostra invece i propri schemi per tutte le UPP che lo utilizzano.
+Lo schema della UPP è un JSON Schema draft 2020-12 che combina i contributi
+dei suoi micro executor tramite `allOf`, senza modificarli. Le viste non
+memorizzano valori né applicano configurazioni. Nelle tre viste le proprietà
+esplicite sono presentate come albero con tipo e descrizione, combinando i
+contributi `allOf`; le proprietà annidate sono indentate. Gli altri vincoli
+JSON Schema non sono un editor né una rappresentazione completa dello schema:
+composizioni alternative, riferimenti e proprietà dinamiche non vengono
+espansi e sono segnalati nella vista.
+Per verificare l'estrazione delle proprietà, eseguire
+`node --experimental-strip-types --test tests/*.test.mjs`
+con Node.js 22.
 
 ## Autorizzazioni
 

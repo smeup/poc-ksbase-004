@@ -10,6 +10,7 @@ import {
   useOutletContext,
   useParams,
 } from "react-router-dom";
+import { getSchemaProperties, type JsonSchema } from "./schema-properties";
 import "./App.css";
 
 type UiCustomization = {
@@ -40,6 +41,7 @@ type MicroExecutor = {
   url: string;
   apis: ApiDefinition[];
   dataSources: DataSource[];
+  uppConfigurationSchemas: Record<string, JsonSchema>;
 };
 
 type DataSource = {
@@ -117,6 +119,12 @@ type EnvironmentContext = {
   environment: ApplicationDomain;
   upps: Upp[];
   uppCatalog: Upp[];
+  microExecutors: MicroExecutor[];
+};
+
+type MicroExecutorContext = {
+  microExecutor: MicroExecutor;
+  upps: Upp[];
 };
 
 type UppContext = {
@@ -250,12 +258,35 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
       throw new Error(`Indicatore standard platform non valido per la UPP ${upp.id}.`);
     }
     for (const id of upp.microExecutorIds) {
-      if (!microExecutorsById.has(id)) {
+      const microExecutor = microExecutorsById.get(id);
+      if (!microExecutor) {
         throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
+      }
+      if (
+        !microExecutor.uppConfigurationSchemas ||
+        !Object.hasOwn(microExecutor.uppConfigurationSchemas, upp.id)
+      ) {
+        throw new Error(`Schema di configurazione mancante per la UPP ${upp.id} nel micro executor ${id}.`);
       }
     }
   }
   for (const microExecutor of microExecutorConfiguration.microExecutors) {
+    if (
+      !microExecutor.uppConfigurationSchemas ||
+      typeof microExecutor.uppConfigurationSchemas !== "object" ||
+      Array.isArray(microExecutor.uppConfigurationSchemas)
+    ) {
+      throw new Error(`Schemi di configurazione non validi per il micro executor ${microExecutor.id}.`);
+    }
+    for (const [uppId, schema] of Object.entries(microExecutor.uppConfigurationSchemas)) {
+      const upp = uppsById.get(uppId);
+      if (!upp || !upp.microExecutorIds.includes(microExecutor.id)) {
+        throw new Error(`UPP ${uppId} non valida negli schemi del micro executor ${microExecutor.id}.`);
+      }
+      if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
+        throw new Error(`Schema non valido per la UPP ${uppId} nel micro executor ${microExecutor.id}.`);
+      }
+    }
     for (const api of microExecutor.apis) {
       if (api.microExecutorId !== microExecutor.id) {
         throw new Error(`Micro executor non valido per il servizio ${api.id}.`);
@@ -860,6 +891,7 @@ function EnvironmentLayout() {
     environment,
     upps: configuration.upps.filter((upp) => upp.standardPlatform || environment.uppIds.includes(upp.id)),
     uppCatalog: configuration.upps,
+    microExecutors: configuration.microExecutors,
   };
 
   return (
@@ -900,6 +932,16 @@ function EnvironmentLayout() {
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Dettaglio
+              </NavLink>
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " is-active" : ""}`
+                }
+                to="configurazione"
+                end
+              >
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Configurazione
               </NavLink>
               <NavLink
                 className={({ isActive }) =>
@@ -961,6 +1003,10 @@ function MicroExecutorLayout() {
   if (!microExecutor) {
     return <NotFoundPage />;
   }
+  const context: MicroExecutorContext = {
+    microExecutor,
+    upps: configuration.upps.filter((upp) => upp.microExecutorIds.includes(microExecutor.id)),
+  };
 
   return (
     <main className="site-main environment-main">
@@ -1003,6 +1049,16 @@ function MicroExecutorLayout() {
                 className={({ isActive }) =>
                   `sidebar-link${isActive ? " is-active" : ""}`
                 }
+                to="configurazione"
+                end
+              >
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Configurazione
+              </NavLink>
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " is-active" : ""}`
+                }
                 to="api"
                 end
               >
@@ -1024,7 +1080,7 @@ function MicroExecutorLayout() {
         </aside>
 
         <div className="environment-outlet">
-          <Outlet context={microExecutor} />
+          <Outlet context={context} />
         </div>
       </div>
       {isJsonOpen && (
@@ -1205,6 +1261,172 @@ function EnvironmentAuthorizations() {
   );
 }
 
+const jsonSchemaDialect = "https://json-schema.org/draft/2020-12/schema";
+
+function getExecutorUppSchema(microExecutor: MicroExecutor, uppId: string): JsonSchema {
+  const schema = microExecutor.uppConfigurationSchemas[uppId];
+  if (!schema) {
+    throw new Error(`Schema mancante per la UPP ${uppId} nel micro executor ${microExecutor.id}.`);
+  }
+  return schema;
+}
+
+function getUppSchema(upp: Upp, microExecutors: MicroExecutor[]): JsonSchema | null {
+  if (upp.microExecutorIds.length === 0) {
+    return null;
+  }
+  const fragments = upp.microExecutorIds.map((id) => {
+    const microExecutor = microExecutors.find((item) => item.id === id);
+    if (!microExecutor) {
+      throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
+    }
+    return getExecutorUppSchema(microExecutor, upp.id);
+  });
+  return {
+    $schema: jsonSchemaDialect,
+    title: upp.title,
+    allOf: fragments,
+  };
+}
+
+function ConfigurationSchemas({
+  entries,
+}: {
+  entries: { upp: Upp; schema: JsonSchema | null }[];
+}) {
+  if (entries.length === 0) {
+    return <p className="page-intro">Nessuna UPP associata.</p>;
+  }
+  return (
+    <div className="configuration-schema-list">
+      {entries.map(({ upp, schema }) => (
+        <section className="configuration-schema" key={upp.id} aria-labelledby={`schema-${upp.id}`}>
+          <div className="configuration-schema-heading">
+            <div>
+              <span className="environment-id">{upp.id}</span>
+              <h3 id={`schema-${upp.id}`}>{upp.title}</h3>
+            </div>
+            {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
+          </div>
+          {schema ? (
+            <SchemaProperties schema={schema} title={upp.title} />
+          ) : (
+            <p className="page-intro">Nessuno schema di configurazione disponibile.</p>
+          )}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function SchemaProperties({ schema, title }: { schema: JsonSchema; title: string }) {
+  const { properties, unrepresented } = getSchemaProperties(schema);
+
+  return (
+    <>
+      {properties.length === 0 ? (
+        <p className="page-intro">Nessuna proprietà esplicita nello schema.</p>
+      ) : (
+        <div className="configuration-properties-wrap" role="region" aria-label={`Proprietà ${title}`} tabIndex={0}>
+          <table className="configuration-properties">
+            <thead>
+              <tr>
+                <th scope="col">Proprietà</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Descrizione</th>
+              </tr>
+            </thead>
+            <tbody>
+              {properties.map((property) => (
+                <tr key={property.path}>
+                  <th scope="row" aria-label={property.path} style={{ paddingInlineStart: `${12 + property.depth * 20}px` }}>
+                    <code>{property.name}</code>
+                  </th>
+                  <td><code>{property.type}</code></td>
+                  <td>{property.description}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {unrepresented.length > 0 && (
+        <p className="configuration-schema-note">
+          Alcuni elementi dello schema non sono rappresentati nell'albero: {unrepresented.join(", ")}.
+        </p>
+      )}
+    </>
+  );
+}
+
+function EnvironmentConfigurationPage() {
+  const { environment, upps, microExecutors } = useOutletContext<EnvironmentContext>();
+  const orderedUpps = [
+    ...upps.filter((upp) => !upp.standardPlatform),
+    ...upps.filter((upp) => upp.standardPlatform),
+  ];
+
+  return (
+    <section aria-labelledby="environment-configuration-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="environment-configuration-heading">Configurazione</h2>
+        </div>
+        <span className="detail-format">{upps.length} UPP</span>
+      </div>
+      <p className="page-intro api-intro">
+        Schemi di configurazione delle UPP associate, incluse quelle standard.
+        Gli schemi sono esempi mock in sola lettura.
+      </p>
+      <ConfigurationSchemas entries={orderedUpps.map((upp) => ({
+        upp,
+        schema: getUppSchema(upp, microExecutors),
+      }))} />
+    </section>
+  );
+}
+
+function UppConfigurationPage() {
+  const { upp, microExecutors } = useOutletContext<UppContext>();
+
+  return (
+    <section aria-labelledby="upp-configuration-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">UPP · {upp.title}</p>
+          <h2 id="upp-configuration-heading">Configurazione</h2>
+        </div>
+      </div>
+      <p className="page-intro api-intro">Schema di configurazione mock in sola lettura.</p>
+      <ConfigurationSchemas entries={[{ upp, schema: getUppSchema(upp, microExecutors) }]} />
+    </section>
+  );
+}
+
+function MicroExecutorConfigurationPage() {
+  const { microExecutor, upps } = useOutletContext<MicroExecutorContext>();
+
+  return (
+    <section aria-labelledby="executor-configuration-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Micro executor · {microExecutor.title}</p>
+          <h2 id="executor-configuration-heading">Configurazione</h2>
+        </div>
+        <span className="detail-format">{upps.length} UPP</span>
+      </div>
+      <p className="page-intro api-intro">
+        Schemi mock in sola lettura definiti da questo micro executor per ogni UPP.
+      </p>
+      <ConfigurationSchemas entries={upps.map((upp) => ({
+        upp,
+        schema: { $schema: jsonSchemaDialect, ...getExecutorUppSchema(microExecutor, upp.id) },
+      }))} />
+    </section>
+  );
+}
+
 function EnvironmentUpps() {
   const { environment, upps } = useOutletContext<EnvironmentContext>();
 
@@ -1374,6 +1596,10 @@ function UppLayout() {
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Dettaglio
               </NavLink>
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="configurazione" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Configurazione
+              </NavLink>
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="micro-executors" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Micro executors
@@ -1517,7 +1743,7 @@ function UppMicroExecutors() {
 }
 
 function MicroExecutorDetail() {
-  const microExecutor = useOutletContext<MicroExecutor>();
+  const { microExecutor } = useOutletContext<MicroExecutorContext>();
 
   return (
     <section
@@ -1558,7 +1784,7 @@ function MicroExecutorDetail() {
 }
 
 function MicroExecutorApis() {
-  const microExecutor = useOutletContext<MicroExecutor>();
+  const { microExecutor } = useOutletContext<MicroExecutorContext>();
 
   return (
     <section
@@ -1651,7 +1877,7 @@ function DataSourcesList({
 }
 
 function MicroExecutorDataSources() {
-  const microExecutor = useOutletContext<MicroExecutor>();
+  const { microExecutor } = useOutletContext<MicroExecutorContext>();
 
   return (
     <section aria-labelledby="data-sources-heading">
@@ -1846,6 +2072,7 @@ const router = createBrowserRouter(
           children: [
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <UppDetail /> },
+            { path: "configurazione", element: <UppConfigurationPage /> },
             { path: "micro-executors", element: <UppMicroExecutors /> },
             { path: "servizi", element: <UppServices /> },
           ],
@@ -1856,6 +2083,7 @@ const router = createBrowserRouter(
           children: [
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <MicroExecutorDetail /> },
+            { path: "configurazione", element: <MicroExecutorConfigurationPage /> },
             { path: "api", element: <MicroExecutorApis /> },
             { path: "data-sources", element: <MicroExecutorDataSources /> },
           ],
@@ -1866,6 +2094,7 @@ const router = createBrowserRouter(
           children: [
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <EnvironmentDetail /> },
+            { path: "configurazione", element: <EnvironmentConfigurationPage /> },
             { path: "upp", element: <EnvironmentUpps /> },
             { path: "upp/store", element: <UppStore /> },
             { path: "autorizzazioni", element: <EnvironmentAuthorizations /> },

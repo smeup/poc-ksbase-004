@@ -7,7 +7,7 @@
       "title": "Smeup BSA",
       "description": "Ambiente applicativo Smeup BSA.",
       "microExecutorIds": ["me-java-as400proxy"],
-      "uppIds": ["upp-as400-connector"],
+      "uppIds": ["B£_000"],
       "authorizations": [],
       "uiCustomization": {
         "theme": {
@@ -36,7 +36,7 @@
       "title": "Smeup LAB",
       "description": "Ambiente applicativo Smeup LAB.",
       "microExecutorIds": ["me-java-as400proxy"],
-      "uppIds": ["upp-as400-connector"],
+      "uppIds": ["B£_000"],
       "authorizations": [],
       "uiCustomization": {
         "theme": {
@@ -65,7 +65,7 @@
       "title": "Smeup ICS",
       "description": "Ambiente applicativo Smeup ICS.",
       "microExecutorIds": ["me-java-as400proxy"],
-      "uppIds": ["upp-as400-connector"],
+      "uppIds": ["B£_000"],
       "authorizations": [],
       "uiCustomization": {
         "theme": {
@@ -94,7 +94,7 @@
       "title": "Cliente A",
       "description": "Ambiente applicativo HOLOS L64 SaaS per il Cliente A.",
       "microExecutorIds": ["me-node-holos"],
-      "uppIds": ["upp-l64-connector"],
+      "uppIds": ["HO_000"],
       "authorizations": [],
       "uiCustomization": {
         "theme": {
@@ -123,7 +123,7 @@
       "title": "Cliente B",
       "description": "Ambiente applicativo HOLOS L64 SaaS per il Cliente B.",
       "microExecutorIds": ["me-node-holos"],
-      "uppIds": ["upp-l64-connector"],
+      "uppIds": ["HO_000"],
       "authorizations": [],
       "uiCustomization": {
         "theme": {

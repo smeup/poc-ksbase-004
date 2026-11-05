@@ -728,6 +728,90 @@
   margin: -8px 0 18px;
 }
 
+.configuration-schema-list {
+  display: grid;
+  gap: 16px;
+}
+
+.configuration-schema {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.configuration-schema-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.configuration-schema-heading h3 {
+  margin: 10px 0 0;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.configuration-properties-wrap {
+  overflow: auto;
+}
+
+.configuration-properties-wrap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.configuration-properties {
+  width: 100%;
+  min-width: 500px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.configuration-properties th,
+.configuration-properties td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.configuration-properties thead th {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.configuration-properties tbody th {
+  width: 35%;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.configuration-properties td:nth-child(2) {
+  width: 20%;
+  color: var(--accent);
+}
+
+.configuration-properties td:last-child {
+  color: var(--muted);
+}
+
+.configuration-schema-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .upp-group > h3 {
   margin: 0 0 12px;
   color: var(--ink);
