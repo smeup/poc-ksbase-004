@@ -2,6 +2,62 @@
   "schemaVersion": 1,
   "microExecutors": [
     {
+      "id": "me-java-batch",
+      "title": "Batch",
+      "description": "Micro executor di piattaforma per eventi e workflow.",
+      "url": "http://me-java-batch-svc",
+      "dataSources": [],
+      "apis": []
+    },
+    {
+      "id": "a37-service",
+      "title": "A37 service",
+      "description": "Micro executor di piattaforma per l'integrazione IoT.",
+      "url": "http://a37-service-svc",
+      "dataSources": [],
+      "apis": []
+    },
+    {
+      "id": "me-java-restapi",
+      "title": "REST API",
+      "description": "Micro executor di piattaforma per le API REST.",
+      "url": "http://me-java-restapi-svc",
+      "dataSources": [],
+      "apis": []
+    },
+    {
+      "id": "me-java-mcp-server",
+      "title": "MCP server",
+      "description": "Micro executor MCP della piattaforma.",
+      "url": "http://me-java-mcp-server-svc",
+      "dataSources": [],
+      "apis": []
+    },
+    {
+      "id": "me-java-h53",
+      "title": "H53",
+      "description": "Micro executor di piattaforma per report e stampa.",
+      "url": "http://me-java-h53-svc",
+      "dataSources": [],
+      "apis": []
+    },
+    {
+      "id": "me-java-ufr",
+      "title": "UFR",
+      "description": "Micro executor UFR della piattaforma.",
+      "url": "http://me-java-ufr-svc",
+      "dataSources": [],
+      "apis": []
+    },
+    {
+      "id": "me-java-rpgle-std",
+      "title": "RPGLE standard",
+      "description": "Micro executor RPGLE standard della piattaforma.",
+      "url": "http://me-java-rpgle-std-svc",
+      "dataSources": [],
+      "apis": []
+    },
+    {
       "id": "me-java-as400proxy",
       "title": "Proxy AS400",
       "description": "Micro executor per i servizi AS400.",

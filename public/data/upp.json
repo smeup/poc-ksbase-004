@@ -2,6 +2,55 @@
   "schemaVersion": 1,
   "upps": [
     {
+      "id": "KS_194",
+      "title": "Events and Workflow",
+      "description": "Funzioni di piattaforma per eventi e workflow.",
+      "standardPlatform": true,
+      "microExecutorIds": ["me-java-batch"]
+    },
+    {
+      "id": "KS_195",
+      "title": "Iot Integration",
+      "description": "Funzioni di piattaforma per l'integrazione IoT.",
+      "standardPlatform": true,
+      "microExecutorIds": ["a37-service"]
+    },
+    {
+      "id": "KS_197",
+      "title": "Web APIS",
+      "description": "Funzioni di piattaforma per le API web.",
+      "standardPlatform": true,
+      "microExecutorIds": ["me-java-restapi", "me-java-mcp-server"]
+    },
+    {
+      "id": "KS_198",
+      "title": "Report and Printing",
+      "description": "Funzioni di piattaforma per report e stampa.",
+      "standardPlatform": true,
+      "microExecutorIds": ["me-java-h53"]
+    },
+    {
+      "id": "KS_199",
+      "title": "UFR",
+      "description": "Funzioni UFR della piattaforma.",
+      "standardPlatform": true,
+      "microExecutorIds": ["me-java-ufr"]
+    },
+    {
+      "id": "KS_203",
+      "title": "Webup.js",
+      "description": "Funzioni Webup.js della piattaforma.",
+      "standardPlatform": true,
+      "microExecutorIds": ["me-java-rpgle-std"]
+    },
+    {
+      "id": "KS_196",
+      "title": "Core functions",
+      "description": "Funzioni di base della piattaforma.",
+      "standardPlatform": true,
+      "microExecutorIds": ["me-java-rpgle-std"]
+    },
+    {
       "id": "upp-as400-connector",
       "title": "AS400 Connector",
       "description": "Connettere gli ambienti applicativi ai servizi AS400.",

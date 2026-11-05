@@ -61,6 +61,7 @@ type Upp = {
   title: string;
   description: string;
   microExecutorIds: string[];
+  standardPlatform?: boolean;
 };
 
 type Authorization = {
@@ -245,6 +246,9 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
   }
 
   for (const upp of uppConfiguration.upps) {
+    if (upp.standardPlatform !== undefined && typeof upp.standardPlatform !== "boolean") {
+      throw new Error(`Indicatore standard platform non valido per la UPP ${upp.id}.`);
+    }
     for (const id of upp.microExecutorIds) {
       if (!microExecutorsById.has(id)) {
         throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
@@ -264,6 +268,11 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
       }
     }
   }
+  const platformExecutorIds = new Set(
+    uppConfiguration.upps
+      .filter((upp) => upp.standardPlatform)
+      .flatMap((upp) => upp.microExecutorIds),
+  );
   for (const environment of domainConfiguration.environments) {
     if (typeof environment.grainInstance !== "string" || !instanceIds.has(environment.grainInstance)) {
       throw new Error(`Istanza Grain non valida per il dominio ${environment.id}.`);
@@ -287,7 +296,9 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     }
     for (const id of environment.uppIds) {
       const upp = uppsById.get(id);
-      if (!upp || upp.microExecutorIds.some((executorId) => !environment.microExecutorIds.includes(executorId))) {
+      if (!upp || upp.microExecutorIds.some(
+        (executorId) => !environment.microExecutorIds.includes(executorId) && !platformExecutorIds.has(executorId),
+      )) {
         throw new Error(`UPP ${id} non valida per il dominio ${environment.id}.`);
       }
     }
@@ -847,7 +858,7 @@ function EnvironmentLayout() {
 
   const environmentContext: EnvironmentContext = {
     environment,
-    upps: configuration.upps.filter((upp) => environment.uppIds.includes(upp.id)),
+    upps: configuration.upps.filter((upp) => upp.standardPlatform || environment.uppIds.includes(upp.id)),
     uppCatalog: configuration.upps,
   };
 
@@ -1210,16 +1221,58 @@ function EnvironmentUpps() {
         </div>
       </div>
       <p className="page-intro api-intro">
-        UPP associate al dominio applicativo {environment.title}.
+        UPP associate al dominio applicativo {environment.title}, comprese quelle
+        standard ereditate dalla piattaforma.
       </p>
       {upps.length === 0 ? (
         <p className="page-intro">Nessuna UPP associata.</p>
       ) : (
-        <div className="micro-executor-list">
-          {upps.map((upp) => <UppCard key={upp.id} upp={upp} />)}
-        </div>
+        <UppGroups upps={upps} specificLabel="UPP specifiche" />
       )}
     </section>
+  );
+}
+
+function UppGroups({
+  upps,
+  specificLabel,
+  activeUppIds,
+}: {
+  upps: Upp[];
+  specificLabel: string;
+  activeUppIds?: Set<string>;
+}) {
+  const specificUpps = upps.filter((upp) => !upp.standardPlatform);
+  const standardUpps = upps.filter((upp) => upp.standardPlatform);
+
+  return (
+    <>
+      <section className="upp-group" aria-labelledby="specific-upps-heading">
+        <h3 id="specific-upps-heading">{specificLabel}</h3>
+        {specificUpps.length === 0 ? (
+          <p className="page-intro">Nessuna UPP in questa sezione.</p>
+        ) : (
+          <div className="micro-executor-list">
+            {specificUpps.map((upp) => (
+              <UppCard key={upp.id} upp={upp} active={activeUppIds?.has(upp.id)} />
+            ))}
+          </div>
+        )}
+      </section>
+      {standardUpps.length > 0 && (
+        <details className="upp-standard-group">
+          <summary>
+            <span>UPP standard platform</span>
+            <span className="detail-format">{standardUpps.length} UPP</span>
+          </summary>
+          <div className="micro-executor-list">
+            {standardUpps.map((upp) => (
+              <UppCard key={upp.id} upp={upp} active={activeUppIds?.has(upp.id)} />
+            ))}
+          </div>
+        </details>
+      )}
+    </>
   );
 }
 
@@ -1238,6 +1291,7 @@ function UppCard({ upp, active }: { upp: Upp; active?: boolean }) {
           </span>
         )}
       </div>
+      {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
       <h3>{upp.title}</h3>
       <p>{upp.description}</p>
       <div className="micro-executor-card-action">
@@ -1249,7 +1303,8 @@ function UppCard({ upp, active }: { upp: Upp; active?: boolean }) {
 }
 
 function UppStore() {
-  const { environment, uppCatalog } = useOutletContext<EnvironmentContext>();
+  const { environment, upps, uppCatalog } = useOutletContext<EnvironmentContext>();
+  const activeUppIds = new Set(upps.map((upp) => upp.id));
 
   return (
     <section aria-labelledby="upp-store-heading">
@@ -1264,16 +1319,13 @@ function UppStore() {
       </div>
       <p className="page-intro api-intro">
         Catalogo completo delle UPP. Lo stato indica se sono associate al dominio
-        {` ${environment.title}`}; questa vista è in sola lettura.
+        {` ${environment.title}`}, anche tramite ereditarietà dalla piattaforma;
+        questa vista è in sola lettura.
       </p>
       {uppCatalog.length === 0 ? (
         <p className="page-intro">Nessuna UPP presente nel catalogo.</p>
       ) : (
-        <div className="micro-executor-list">
-          {uppCatalog.map((upp) => (
-            <UppCard key={upp.id} upp={upp} active={environment.uppIds.includes(upp.id)} />
-          ))}
-        </div>
+        <UppGroups upps={uppCatalog} specificLabel="Altre UPP" activeUppIds={activeUppIds} />
       )}
     </section>
   );
@@ -1310,6 +1362,7 @@ function UppLayout() {
           <section className="environment-summary-card" aria-labelledby="upp-title">
             <p className="eyebrow">UPP</p>
             <h1 id="upp-title">{upp.title}</h1>
+            {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
             <button className="json-trigger" type="button" onClick={() => setIsJsonOpen(true)}>
               Mostra JSON
             </button>
@@ -1521,26 +1574,30 @@ function MicroExecutorApis() {
           {String(microExecutor.apis.length).padStart(2, "0")} servizi
         </span>
       </div>
-      <div className="api-list">
-        {microExecutor.apis.map((api) => (
-          <dl className="api-row" key={api.id}>
-            <div>
-              <dt>ID</dt>
-              <dd className="detail-value detail-id">{api.id}</dd>
-            </div>
-            <div>
-              <dt>Descrizione</dt>
-              <dd className="detail-value">{api.description}</dd>
-            </div>
-            <div>
-              <dt>Micro executor</dt>
-              <dd className="detail-value api-executor-id">
-                {api.microExecutorId}
-              </dd>
-            </div>
-          </dl>
-        ))}
-      </div>
+      {microExecutor.apis.length === 0 ? (
+        <p className="page-intro">Nessun servizio associato.</p>
+      ) : (
+        <div className="api-list">
+          {microExecutor.apis.map((api) => (
+            <dl className="api-row" key={api.id}>
+              <div>
+                <dt>ID</dt>
+                <dd className="detail-value detail-id">{api.id}</dd>
+              </div>
+              <div>
+                <dt>Descrizione</dt>
+                <dd className="detail-value">{api.description}</dd>
+              </div>
+              <div>
+                <dt>Micro executor</dt>
+                <dd className="detail-value api-executor-id">
+                  {api.microExecutorId}
+                </dd>
+              </div>
+            </dl>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

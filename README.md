@@ -36,8 +36,19 @@ servizi, non necessariamente tutti quelli dei suoi micro executor. La voce
 aprirne il dettaglio. Lo UPP Store del dominio mostra l'intero catalogo e
 indica le UPP attive per quel dominio; è una vista in sola lettura. Una UPP
 condivisa può essere associata a più domini. Ogni micro executor riferito dalla
-UPP deve essere associato anche ai domini che la utilizzano; i riferimenti
-incoerenti impediscono il caricamento della configurazione.
+UPP deve essere associato anche ai domini che la utilizzano, direttamente o
+per ereditarietà dalla piattaforma; i riferimenti incoerenti impediscono il
+caricamento della configurazione.
+
+Le UPP con `standardPlatform: true` sono ereditate automaticamente da ogni
+dominio, insieme ai loro micro executor, anche se non compaiono negli array
+`uppIds` e `microExecutorIds` del dominio. Sono contrassegnate dal tag
+«standard platform» e risultano attive nello UPP Store. Una UPP standard
+esplicitamente indicata nel dominio compare una sola volta. I servizi e i
+data source dei nuovi micro executor standard non sono specificati; gli URL
+sono esempi mock e non rappresentano endpoint verificati.
+Nella lista UPP e nello Store le UPP standard sono raccolte sotto le altre in
+una sezione espandibile, inizialmente chiusa.
 
 ## Autorizzazioni
 
