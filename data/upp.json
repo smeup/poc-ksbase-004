@@ -51,7 +51,7 @@
       "microExecutorIds": ["me-java-rpgle-std"]
     },
     {
-      "id": "upp-as400-connector",
+      "id": "B£_000",
       "title": "AS400 Connector",
       "description": "Connettere gli ambienti applicativi ai servizi AS400.",
       "microExecutorIds": ["me-java-as400proxy"]
@@ -81,7 +81,7 @@
       "microExecutorIds": ["me-node-holos"]
     },
     {
-      "id": "upp-l64-connector",
+      "id": "HO_000",
       "title": "L64 Connector",
       "description": "Gestire le classi e le istanze di HOLOS L64.",
       "microExecutorIds": ["me-node-holos"]

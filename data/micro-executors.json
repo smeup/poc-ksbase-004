@@ -6,6 +6,19 @@
       "title": "Batch",
       "description": "Micro executor di piattaforma per eventi e workflow.",
       "url": "http://me-java-batch-svc",
+      "uppConfigurationSchemas": {
+        "KS_194": {
+          "type": "object",
+          "properties": {
+            "workflow": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "description": "Abilita eventi e workflow." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": []
     },
@@ -14,6 +27,19 @@
       "title": "A37 service",
       "description": "Micro executor di piattaforma per l'integrazione IoT.",
       "url": "http://a37-service-svc",
+      "uppConfigurationSchemas": {
+        "KS_195": {
+          "type": "object",
+          "properties": {
+            "iot": {
+              "type": "object",
+              "properties": {
+                "endpoint": { "type": "string", "description": "Endpoint di integrazione IoT." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": []
     },
@@ -22,6 +48,19 @@
       "title": "REST API",
       "description": "Micro executor di piattaforma per le API REST.",
       "url": "http://me-java-restapi-svc",
+      "uppConfigurationSchemas": {
+        "KS_197": {
+          "type": "object",
+          "properties": {
+            "restApi": {
+              "type": "object",
+              "properties": {
+                "basePath": { "type": "string", "description": "Percorso base delle API REST." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": []
     },
@@ -30,6 +69,19 @@
       "title": "MCP server",
       "description": "Micro executor MCP della piattaforma.",
       "url": "http://me-java-mcp-server-svc",
+      "uppConfigurationSchemas": {
+        "KS_197": {
+          "type": "object",
+          "properties": {
+            "mcpServer": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "description": "Abilita il server MCP." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": []
     },
@@ -38,6 +90,19 @@
       "title": "H53",
       "description": "Micro executor di piattaforma per report e stampa.",
       "url": "http://me-java-h53-svc",
+      "uppConfigurationSchemas": {
+        "KS_198": {
+          "type": "object",
+          "properties": {
+            "reporting": {
+              "type": "object",
+              "properties": {
+                "defaultFormat": { "type": "string", "description": "Formato predefinito dei report." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": []
     },
@@ -46,6 +111,19 @@
       "title": "UFR",
       "description": "Micro executor UFR della piattaforma.",
       "url": "http://me-java-ufr-svc",
+      "uppConfigurationSchemas": {
+        "KS_199": {
+          "type": "object",
+          "properties": {
+            "ufr": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "description": "Abilita le funzioni UFR." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": []
     },
@@ -54,6 +132,30 @@
       "title": "RPGLE standard",
       "description": "Micro executor RPGLE standard della piattaforma.",
       "url": "http://me-java-rpgle-std-svc",
+      "uppConfigurationSchemas": {
+        "KS_203": {
+          "type": "object",
+          "properties": {
+            "webup": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean", "description": "Abilita Webup.js." }
+              }
+            }
+          }
+        },
+        "KS_196": {
+          "type": "object",
+          "properties": {
+            "core": {
+              "type": "object",
+              "properties": {
+                "language": { "type": "string", "description": "Lingua delle funzioni di base." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": []
     },
@@ -62,24 +164,37 @@
       "title": "Proxy AS400",
       "description": "Micro executor per i servizi AS400.",
       "url": "http://me-java-as400proxy-svc",
+      "uppConfigurationSchemas": {
+        "B£_000": {
+          "type": "object",
+          "properties": {
+            "as400": {
+              "type": "object",
+              "properties": {
+                "host": { "type": "string", "description": "Host del sistema AS400." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [],
       "apis": [
         {
           "id": "LOA10_SE",
           "description": "Lista oggetti.",
-          "uppIds": ["upp-as400-connector"],
+          "uppIds": ["B£_000"],
           "microExecutorId": "me-java-as400proxy"
         },
         {
           "id": "WESER_23",
           "description": "Tooltip.",
-          "uppIds": ["upp-as400-connector"],
+          "uppIds": ["B£_000"],
           "microExecutorId": "me-java-as400proxy"
         },
         {
           "id": "JATRE_18C",
           "description": "Interprete schede.",
-          "uppIds": ["upp-as400-connector"],
+          "uppIds": ["B£_000"],
           "microExecutorId": "me-java-as400proxy"
         }
       ]
@@ -89,6 +204,30 @@
       "title": "Proxy AS400 SRVLAB",
       "description": "Proxy verso AS400 srvlab01.smeup.com.",
       "url": "http://me-java-as400-proxy-srvlab-svc",
+      "uppConfigurationSchemas": {
+        "upp-clienti": {
+          "type": "object",
+          "properties": {
+            "clienti": {
+              "type": "object",
+              "properties": {
+                "library": { "type": "string", "description": "Libreria AS400 dei clienti." }
+              }
+            }
+          }
+        },
+        "upp-ordini": {
+          "type": "object",
+          "properties": {
+            "ordini": {
+              "type": "object",
+              "properties": {
+                "library": { "type": "string", "description": "Libreria AS400 degli ordini." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [
         {
           "id": "db2-srvlab",
@@ -135,6 +274,30 @@
       "title": "Proxy HOLOS L64",
       "description": "Proxy verso L64 per l'ambiente HOLOS.",
       "url": "http://me-node-holos-svc",
+      "uppConfigurationSchemas": {
+        "upp-holos": {
+          "type": "object",
+          "properties": {
+            "holos": {
+              "type": "object",
+              "properties": {
+                "endpoint": { "type": "string", "description": "Endpoint dei servizi operativi HOLOS." }
+              }
+            }
+          }
+        },
+        "HO_000": {
+          "type": "object",
+          "properties": {
+            "l64": {
+              "type": "object",
+              "properties": {
+                "endpoint": { "type": "string", "description": "Endpoint del connettore L64." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [
         {
           "id": "sap-holos",
@@ -147,13 +310,13 @@
         {
           "id": "HO_000_01",
           "description": "Gestisce le classi di HOLOS L64.",
-          "uppIds": ["upp-l64-connector"],
+          "uppIds": ["HO_000"],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_000_02",
           "description": "Gestisce le istanze di HOLOS L64.",
-          "uppIds": ["upp-l64-connector"],
+          "uppIds": ["HO_000"],
           "microExecutorId": "me-node-holos"
         },
         {
@@ -193,6 +356,30 @@
       "title": "Fatturazione elettronica",
       "description": "Servizio per la gestione della fatturazione elettronica.",
       "url": "http://me-java-e-invoice-svc",
+      "uppConfigurationSchemas": {
+        "upp-clienti": {
+          "type": "object",
+          "properties": {
+            "destinatari": {
+              "type": "object",
+              "properties": {
+                "validationEnabled": { "type": "boolean", "description": "Abilita la verifica dei destinatari." }
+              }
+            }
+          }
+        },
+        "upp-fatturazione": {
+          "type": "object",
+          "properties": {
+            "fatturazione": {
+              "type": "object",
+              "properties": {
+                "endpoint": { "type": "string", "description": "Endpoint della fatturazione elettronica." }
+              }
+            }
+          }
+        }
+      },
       "dataSources": [
         {
           "id": "postgres-e-invoice",
