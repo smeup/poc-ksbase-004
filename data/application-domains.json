@@ -3,15 +3,12 @@
   "environments": [
     {
       "id": "ges_10adv",
-      "title": "GES 10 ADV",
-      "description": "Ambiente applicativo per la gestione dei processi amministrativi e contabili.",
-      "microExecutorIds": ["me-java-as400-proxy-srvlab", "me-java-e-invoice"],
-      "uppIds": ["upp-clienti", "upp-ordini", "upp-fatturazione"],
-      "authorizations": [
-        { "key": "upp-clienti", "allowed": true },
-        { "key": "upp-ordini.AS_003_03", "allowed": true },
-        { "key": "upp-fatturazione.EI_002_02-consulta", "allowed": true }
-      ],
+      "grainInstance": "smeup-si",
+      "title": "Smeup BSA",
+      "description": "Ambiente applicativo Smeup BSA.",
+      "microExecutorIds": ["me-java-as400proxy"],
+      "uppIds": ["upp-as400-connector"],
+      "authorizations": [],
       "uiCustomization": {
         "theme": {
           "id": "default",
@@ -27,22 +24,20 @@
         },
         "activeLogo": {
           "id": "ges-10adv-primary",
-          "name": "GES 10 ADV",
-          "mark": "GES",
-          "alt": "Logo GES 10 ADV"
+          "name": "Smeup BSA",
+          "mark": "BSA",
+          "alt": "Logo Smeup BSA"
         }
       }
     },
     {
-      "id": "holos",
-      "title": "HOLOS",
-      "description": "Ambiente applicativo per l'organizzazione dei servizi e dei flussi operativi.",
-      "microExecutorIds": ["me-node-holos", "me-java-e-invoice"],
-      "uppIds": ["upp-holos", "upp-fatturazione"],
-      "authorizations": [
-        { "key": "*", "allowed": true },
-        { "key": "upp-holos.HO_003_03", "allowed": false }
-      ],
+      "id": "ges_49adv",
+      "grainInstance": "smeup-si",
+      "title": "Smeup LAB",
+      "description": "Ambiente applicativo Smeup LAB.",
+      "microExecutorIds": ["me-java-as400proxy"],
+      "uppIds": ["upp-as400-connector"],
+      "authorizations": [],
       "uiCustomization": {
         "theme": {
           "id": "default",
@@ -57,10 +52,97 @@
           "numberFormat": "it-IT"
         },
         "activeLogo": {
-          "id": "holos-primary",
-          "name": "HOLOS",
-          "mark": "HO",
-          "alt": "Logo HOLOS"
+          "id": "ges-49adv-primary",
+          "name": "Smeup LAB",
+          "mark": "LAB",
+          "alt": "Logo Smeup LAB"
+        }
+      }
+    },
+    {
+      "id": "ges_11adv",
+      "grainInstance": "smeup-si",
+      "title": "Smeup ICS",
+      "description": "Ambiente applicativo Smeup ICS.",
+      "microExecutorIds": ["me-java-as400proxy"],
+      "uppIds": ["upp-as400-connector"],
+      "authorizations": [],
+      "uiCustomization": {
+        "theme": {
+          "id": "default",
+          "name": "Tema predefinito",
+          "mode": "light",
+          "accent": "#a51f38"
+        },
+        "localization": {
+          "locale": "it-IT",
+          "language": "Italiano",
+          "dateFormat": "dd/MM/yyyy",
+          "numberFormat": "it-IT"
+        },
+        "activeLogo": {
+          "id": "ges-11adv-primary",
+          "name": "Smeup ICS",
+          "mark": "ICS",
+          "alt": "Logo Smeup ICS"
+        }
+      }
+    },
+    {
+      "id": "cliente-a",
+      "grainInstance": "holos-saas",
+      "title": "Cliente A",
+      "description": "Ambiente applicativo HOLOS L64 SaaS per il Cliente A.",
+      "microExecutorIds": ["me-node-holos"],
+      "uppIds": ["upp-l64-connector"],
+      "authorizations": [],
+      "uiCustomization": {
+        "theme": {
+          "id": "default",
+          "name": "Tema predefinito",
+          "mode": "light",
+          "accent": "#a51f38"
+        },
+        "localization": {
+          "locale": "it-IT",
+          "language": "Italiano",
+          "dateFormat": "dd/MM/yyyy",
+          "numberFormat": "it-IT"
+        },
+        "activeLogo": {
+          "id": "cliente-a-primary",
+          "name": "Cliente A",
+          "mark": "A",
+          "alt": "Logo Cliente A"
+        }
+      }
+    },
+    {
+      "id": "cliente-b",
+      "grainInstance": "holos-saas",
+      "title": "Cliente B",
+      "description": "Ambiente applicativo HOLOS L64 SaaS per il Cliente B.",
+      "microExecutorIds": ["me-node-holos"],
+      "uppIds": ["upp-l64-connector"],
+      "authorizations": [],
+      "uiCustomization": {
+        "theme": {
+          "id": "default",
+          "name": "Tema predefinito",
+          "mode": "light",
+          "accent": "#a51f38"
+        },
+        "localization": {
+          "locale": "it-IT",
+          "language": "Italiano",
+          "dateFormat": "dd/MM/yyyy",
+          "numberFormat": "it-IT"
+        },
+        "activeLogo": {
+          "id": "cliente-b-primary",
+          "name": "Cliente B",
+          "mark": "B",
+          "alt": "Logo Cliente B"
         }
       }
     }

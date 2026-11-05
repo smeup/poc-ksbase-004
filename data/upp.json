@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "upps": [
     {
+      "id": "upp-as400-connector",
+      "title": "AS400 Connector",
+      "description": "Connettere gli ambienti applicativi ai servizi AS400.",
+      "microExecutorIds": ["me-java-as400proxy"]
+    },
+    {
       "id": "upp-clienti",
       "title": "Gestione clienti",
       "description": "Consultare e verificare le informazioni amministrative dei clienti.",
@@ -23,6 +29,12 @@
       "id": "upp-holos",
       "title": "Gestione operativa HOLOS",
       "description": "Organizzare e consultare le attivita e i flussi operativi.",
+      "microExecutorIds": ["me-node-holos"]
+    },
+    {
+      "id": "upp-l64-connector",
+      "title": "L64 Connector",
+      "description": "Gestire le classi e le istanze di HOLOS L64.",
       "microExecutorIds": ["me-node-holos"]
     }
   ]

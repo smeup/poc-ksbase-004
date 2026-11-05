@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "grainInstances": [
+    {
+      "id": "smeup-si",
+      "title": "Smeup SI",
+      "description": "Istanza Grain per gli ambienti applicativi Smeup SI."
+    },
+    {
+      "id": "holos-saas",
+      "title": "HOLOS SaaS",
+      "description": "Istanza Grain per gli ambienti applicativi HOLOS L64 SaaS."
+    }
+  ]
+}
