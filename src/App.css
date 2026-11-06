@@ -615,6 +615,155 @@
   background: var(--accent-soft);
 }
 
+.health-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.health-summary > div {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--white);
+}
+
+.health-summary strong {
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.health-summary span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.health-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.health-card {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--white);
+}
+
+.health-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.health-card h3 {
+  margin: 10px 0 0;
+  font-family: var(--serif);
+  font-size: 20px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.health-card h3 a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.health-card h3 a:hover {
+  color: var(--accent);
+}
+
+.health-card h3 a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.health-card .platform-tag {
+  margin-top: 12px;
+}
+
+.health-status {
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.health-status.is-healthy {
+  border-color: var(--status);
+  color: #306653;
+  background: #edf5f1;
+}
+
+.health-status.is-error {
+  border-color: var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.health-reason {
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.data-retry {
+  margin-top: 16px;
+}
+
+.capacity-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.capacity-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--white);
+}
+
+.capacity-card dt {
+  min-height: 34px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.capacity-card dd {
+  margin: 12px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.capacity-card dd strong {
+  display: block;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 400;
+}
+
 .analysis-comparison h3 {
   margin: 0 0 8px;
   color: var(--ink);
@@ -760,6 +909,61 @@
 
 .configuration-properties-wrap {
   overflow: auto;
+}
+
+.entities-table-wrap {
+  overflow-x: auto;
+}
+
+.entities-table-wrap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.entities-table {
+  width: 100%;
+  min-width: 550px;
+  border-collapse: collapse;
+  background: var(--white);
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.entities-table th,
+.entities-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.entities-table thead th {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.entities-table tbody th {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.entities-table a {
+  color: var(--accent);
+}
+
+.entities-table a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.entities-upp-id {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
 }
 
 .configuration-properties-wrap:focus-visible {
@@ -1258,6 +1462,11 @@
   }
 
   .micro-executor-list {
+    grid-template-columns: 1fr;
+  }
+
+  .health-summary,
+  .capacity-list {
     grid-template-columns: 1fr;
   }
 

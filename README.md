@@ -12,7 +12,10 @@ configurazione. Gli URL diretti dei domini rimangono disponibili.
 Smeup SI contiene Smeup BSA (`ges_10adv`), Smeup LAB (`ges_49adv`) e
 Smeup ICS (`ges_11adv`). Tutti utilizzano la UPP AS400 Connector (`B£_000`), con il
 micro executor `me-java-as400proxy` e i servizi `LOA10_SE`, `WESER_23` e
-`JATRE_18C`. HOLOS SaaS contiene Cliente A e Cliente B, entrambi associati
+`JATRE_18C`. Smeup LAB include inoltre la UPP LAB Services (`X1_LAB`), con il
+micro executor `me-java-smeuplab` e i servizi `X1_LAB_01` (processi di
+sviluppo) e `X1_LAB_02` (integrazione GitHub). Il relativo endpoint e schema
+di configurazione sono esempi mock. HOLOS SaaS contiene Cliente A e Cliente B, entrambi associati
 alla UPP condivisa L64 Connector (`HO_000`). La UPP usa
 `me-node-holos` e i servizi `HO_000_01` (classi) e `HO_000_02` (istanze).
 Queste associazioni sono dati mock: non configurano connessioni separate né
@@ -50,6 +53,17 @@ sono esempi mock e non rappresentano endpoint verificati.
 Nella lista UPP e nello Store le UPP standard sono raccolte sotto le altre in
 una sezione espandibile, inizialmente chiusa.
 
+## Entità delle UPP
+
+Ogni UPP definisce in `public/data/upp.json` l'array obbligatorio `entities`,
+con `id` e `description` per ogni entità; l'UPP che contiene l'array è quella
+di riferimento. Gli ID sono univoci all'interno della UPP. Le entità presenti
+sono esempi mock, non un catalogo di responsabilità verificato.
+La voce «Entità» della UPP mostra il suo elenco; quella del dominio aggrega
+le entità di tutte le UPP associate, incluse le standard ereditate, senza
+confondere eventuali ID uguali appartenenti a UPP diverse. Entrambe le viste
+sono in sola lettura.
+
 ## Schemi di configurazione
 
 Ogni micro executor definisce in `uppConfigurationSchemas` uno schema JSON per
@@ -73,6 +87,28 @@ espansi e sono segnalati nella vista.
 Per verificare l'estrazione delle proprietà, eseguire
 `node --experimental-strip-types --test tests/*.test.mjs`
 con Node.js 22.
+
+## Health check
+
+La voce «Health check» del dominio mostra tutte le sue UPP, incluse quelle
+standard, con un riepilogo degli stati e la causa per ogni errore.
+I dati in `public/data/upp-health.json` sono **simulati**: non viene
+interrogato alcun servizio e gli stati non indicano la salute reale delle UPP.
+Ogni record associa `domainId` e `uppId` a uno stato `healthy` oppure `error`;
+per `error` è obbligatorio indicare `reason`. Una UPP senza record per il
+dominio compare come «Non disponibile». Dati non validi o non caricabili sono
+segnalati nella dashboard, senza impedire l'accesso alle altre pagine.
+
+## Capacità e limiti
+
+La voce «Capacità e limiti» del dominio mostra in sola lettura il rate limit
+in richieste al minuto, la dimensione massima della richiesta in byte e il
+costo per chiamata in euro. I dati sono esempi mock in
+`public/data/domain-capacity.json`: non sono limiti applicati né costi reali.
+Ogni record è riferito a un dominio; `costPerCallMicroEur` esprime il costo in
+milionesimi di euro. Se il dominio non ha un record, la pagina segnala che i
+dati non sono disponibili; dati invalidi o non caricabili sono segnalati senza
+impedire l'accesso alle altre pagine.
 
 ## Autorizzazioni
 

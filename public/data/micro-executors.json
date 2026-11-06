@@ -200,6 +200,40 @@
       ]
     },
     {
+      "id": "me-java-smeuplab",
+      "title": "Smeup LAB",
+      "description": "Micro executor per i servizi Smeup LAB.",
+      "url": "http://me-java-smeuplab-svc",
+      "uppConfigurationSchemas": {
+        "X1_LAB": {
+          "type": "object",
+          "properties": {
+            "lab": {
+              "type": "object",
+              "properties": {
+                "repository": { "type": "string", "description": "Repository GitHub usato dai servizi LAB." }
+              }
+            }
+          }
+        }
+      },
+      "dataSources": [],
+      "apis": [
+        {
+          "id": "X1_LAB_01",
+          "description": "Processi di sviluppo.",
+          "uppIds": ["X1_LAB"],
+          "microExecutorId": "me-java-smeuplab"
+        },
+        {
+          "id": "X1_LAB_02",
+          "description": "Integrazione GitHub.",
+          "uppIds": ["X1_LAB"],
+          "microExecutorId": "me-java-smeuplab"
+        }
+      ]
+    },
+    {
       "id": "me-java-as400-proxy-srvlab",
       "title": "Proxy AS400 SRVLAB",
       "description": "Proxy verso AS400 srvlab01.smeup.com.",

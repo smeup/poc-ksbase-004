@@ -9,8 +9,14 @@ import {
   useLoaderData,
   useOutletContext,
   useParams,
+  useRevalidator,
+  useRouteError,
+  type LoaderFunctionArgs,
 } from "react-router-dom";
+import { parseDomainCapacities } from "./domain-capacity";
+import { getDomainHealth, parseHealthChecks } from "./health-check";
 import { getSchemaProperties, type JsonSchema } from "./schema-properties";
+import { collectUppEntities, validateUppEntities, type UppEntity } from "./upp-entities";
 import "./App.css";
 
 type UiCustomization = {
@@ -63,6 +69,7 @@ type Upp = {
   title: string;
   description: string;
   microExecutorIds: string[];
+  entities: UppEntity[];
   standardPlatform?: boolean;
 };
 
@@ -254,6 +261,7 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
   }
 
   for (const upp of uppConfiguration.upps) {
+    validateUppEntities(upp.id, upp.entities);
     if (upp.standardPlatform !== undefined && typeof upp.standardPlatform !== "boolean") {
       throw new Error(`Indicatore standard platform non valido per la UPP ${upp.id}.`);
     }
@@ -937,6 +945,26 @@ function EnvironmentLayout() {
                 className={({ isActive }) =>
                   `sidebar-link${isActive ? " is-active" : ""}`
                 }
+                to="health-check"
+                end
+              >
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Health check
+              </NavLink>
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " is-active" : ""}`
+                }
+                to="capacita-limiti"
+                end
+              >
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Capacità e limiti
+              </NavLink>
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " is-active" : ""}`
+                }
                 to="configurazione"
                 end
               >
@@ -951,6 +979,16 @@ function EnvironmentLayout() {
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 UPP
+              </NavLink>
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " is-active" : ""}`
+                }
+                to="entita"
+                end
+              >
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Entità
               </NavLink>
               <NavLink
                 className={({ isActive }) =>
@@ -1182,6 +1220,163 @@ function EnvironmentDetail() {
           </dd>
         </div>
       </dl>
+    </section>
+  );
+}
+
+async function loadHealthChecks({ request }: LoaderFunctionArgs) {
+  const response = await fetch(`${import.meta.env.BASE_URL}data/upp-health.json`, {
+    signal: request.signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Caricamento health check non riuscito (HTTP ${response.status}).`);
+  }
+  const data: unknown = await response.json();
+  return parseHealthChecks(data);
+}
+
+function DomainMockDataError({ title }: { title: string }) {
+  const error = useRouteError();
+  const revalidator = useRevalidator();
+  return (
+    <section aria-labelledby="domain-data-error-heading" role="alert">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">{title} · dati mock</p>
+          <h2 id="domain-data-error-heading">Dati non disponibili</h2>
+        </div>
+      </div>
+      <p className="page-intro">
+        {error instanceof Error ? error.message : `Impossibile caricare i dati: ${title}.`}
+      </p>
+      <button
+        className="json-trigger data-retry"
+        type="button"
+        onClick={() => revalidator.revalidate()}
+        disabled={revalidator.state !== "idle"}
+      >
+        Riprova
+      </button>
+    </section>
+  );
+}
+
+async function loadDomainCapacities({ request }: LoaderFunctionArgs) {
+  const response = await fetch(`${import.meta.env.BASE_URL}data/domain-capacity.json`, {
+    signal: request.signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Caricamento capacità e limiti non riuscito (HTTP ${response.status}).`);
+  }
+  const data: unknown = await response.json();
+  return parseDomainCapacities(data);
+}
+
+function EnvironmentCapacity() {
+  const { environment } = useOutletContext<EnvironmentContext>();
+  const capacities = useLoaderData<typeof loadDomainCapacities>();
+  const capacity = capacities.find((item) => item.domainId === environment.id);
+  const numberFormat = new Intl.NumberFormat("it-IT");
+  const moneyFormat = new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  });
+
+  return (
+    <section aria-labelledby="capacity-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="capacity-heading">Capacità e limiti</h2>
+        </div>
+        <span className="detail-format">Dati mock</span>
+      </div>
+      <p className="page-intro api-intro">
+        Valori simulati per il dominio, consultabili in sola lettura. Non sono
+        limiti applicati né costi reali.
+      </p>
+      {capacity ? (
+        <dl className="capacity-list">
+          <div className="capacity-card">
+            <dt>Rate limit</dt>
+            <dd><strong>{numberFormat.format(capacity.requestsPerMinute)}</strong> richieste / minuto</dd>
+          </div>
+          <div className="capacity-card">
+            <dt>Dimensione massima della richiesta</dt>
+            <dd><strong>{numberFormat.format(capacity.maxRequestBytes)}</strong> byte</dd>
+          </div>
+          <div className="capacity-card">
+            <dt>Costo per chiamata</dt>
+            <dd><strong>{moneyFormat.format(capacity.costPerCallMicroEur / 1_000_000)}</strong> / chiamata</dd>
+          </div>
+        </dl>
+      ) : (
+        <p className="page-intro" role="status">
+          Nessun dato mock di capacità e limiti disponibile per questo dominio.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function EnvironmentHealthCheck() {
+  const { environment, upps } = useOutletContext<EnvironmentContext>();
+  const checks = useLoaderData<typeof loadHealthChecks>();
+  const orderedUpps = [
+    ...upps.filter((upp) => !upp.standardPlatform),
+    ...upps.filter((upp) => upp.standardPlatform),
+  ];
+  const rows = getDomainHealth(environment.id, orderedUpps, checks);
+  const healthyCount = rows.filter(({ health }) => health.status === "healthy").length;
+  const errorCount = rows.filter(({ health }) => health.status === "error").length;
+  const unknownCount = rows.filter(({ health }) => health.status === "unknown").length;
+
+  return (
+    <section aria-labelledby="health-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="health-heading">Health check</h2>
+        </div>
+        <span className="detail-format">Dati mock</span>
+      </div>
+      <p className="page-intro api-intro">
+        Stati e cause di errore simulati per le UPP del dominio, incluse quelle standard.
+        Non viene effettuato alcun controllo reale.
+      </p>
+      <div className="health-summary" aria-label="Riepilogo health check">
+        <div><strong>{healthyCount}</strong><span>Vive</span></div>
+        <div><strong>{errorCount}</strong><span>In errore</span></div>
+        <div><strong>{unknownCount}</strong><span>Non disponibili</span></div>
+      </div>
+      {rows.length === 0 ? (
+        <p className="page-intro">Nessuna UPP associata al dominio.</p>
+      ) : (
+        <ul className="health-list" aria-label="Stato delle UPP">
+          {rows.map(({ upp, health }) => (
+            <li className="health-card" key={upp.id}>
+              <div className="health-card-heading">
+                <div>
+                  <span className="environment-id">{upp.id}</span>
+                  <h3><Link to={`/upp/${upp.id}`}>{upp.title}</Link></h3>
+                </div>
+                <span className={`health-status is-${health.status}`}>
+                  {health.status === "healthy" ? "Viva" : health.status === "error" ? "In errore" : "Non disponibile"}
+                </span>
+              </div>
+              {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
+              {health.status === "error" && (
+                <p className="health-reason"><strong>Causa:</strong> {health.reason}</p>
+              )}
+              {health.status === "unknown" && (
+                <p className="health-reason">Nessun dato mock disponibile per questa UPP nel dominio.</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -1427,6 +1622,88 @@ function MicroExecutorConfigurationPage() {
   );
 }
 
+function EntitiesTable({ upps, linkToUpp = false }: { upps: Upp[]; linkToUpp?: boolean }) {
+  const rows = collectUppEntities(upps);
+
+  if (rows.length === 0) {
+    return <p className="page-intro">Nessuna entità definita.</p>;
+  }
+
+  return (
+    <div className="entities-table-wrap" role="region" aria-label="Elenco delle entità" tabIndex={0}>
+      <table className="entities-table">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Descrizione</th>
+            <th scope="col">UPP di riferimento</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ entity, upp }) => (
+            <tr key={JSON.stringify([upp.id, entity.id])}>
+              <th scope="row"><code>{entity.id}</code></th>
+              <td>{entity.description}</td>
+              <td>
+                {linkToUpp ? (
+                  <Link to={`/upp/${upp.id}/entita`}>{upp.title}</Link>
+                ) : upp.title}
+                <span className="entities-upp-id">{upp.id}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function EnvironmentEntities() {
+  const { environment, upps } = useOutletContext<EnvironmentContext>();
+  const orderedUpps = [
+    ...upps.filter((upp) => !upp.standardPlatform),
+    ...upps.filter((upp) => upp.standardPlatform),
+  ];
+  const count = collectUppEntities(orderedUpps).length;
+
+  return (
+    <section aria-labelledby="environment-entities-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="environment-entities-heading">Entità</h2>
+        </div>
+        <span className="detail-format">{count} entità</span>
+      </div>
+      <p className="page-intro api-intro">
+        Entità delle UPP associate al dominio, incluse quelle standard.
+        I dati sono esempi mock in sola lettura.
+      </p>
+      <EntitiesTable upps={orderedUpps} linkToUpp />
+    </section>
+  );
+}
+
+function UppEntities() {
+  const { upp } = useOutletContext<UppContext>();
+
+  return (
+    <section aria-labelledby="upp-entities-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">UPP · {upp.title}</p>
+          <h2 id="upp-entities-heading">Entità</h2>
+        </div>
+        <span className="detail-format">{upp.entities.length} entità</span>
+      </div>
+      <p className="page-intro api-intro">
+        Entità di cui è responsabile questa UPP. I dati sono esempi mock in sola lettura.
+      </p>
+      <EntitiesTable upps={[upp]} />
+    </section>
+  );
+}
+
 function EnvironmentUpps() {
   const { environment, upps } = useOutletContext<EnvironmentContext>();
 
@@ -1599,6 +1876,10 @@ function UppLayout() {
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="configurazione" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Configurazione
+              </NavLink>
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="entita" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Entità
               </NavLink>
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="micro-executors" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
@@ -2073,6 +2354,7 @@ const router = createBrowserRouter(
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <UppDetail /> },
             { path: "configurazione", element: <UppConfigurationPage /> },
+            { path: "entita", element: <UppEntities /> },
             { path: "micro-executors", element: <UppMicroExecutors /> },
             { path: "servizi", element: <UppServices /> },
           ],
@@ -2095,8 +2377,11 @@ const router = createBrowserRouter(
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <EnvironmentDetail /> },
             { path: "configurazione", element: <EnvironmentConfigurationPage /> },
+            { path: "health-check", loader: loadHealthChecks, element: <EnvironmentHealthCheck />, errorElement: <DomainMockDataError title="Health check" /> },
+            { path: "capacita-limiti", loader: loadDomainCapacities, element: <EnvironmentCapacity />, errorElement: <DomainMockDataError title="Capacità e limiti" /> },
             { path: "upp", element: <EnvironmentUpps /> },
             { path: "upp/store", element: <UppStore /> },
+            { path: "entita", element: <EnvironmentEntities /> },
             { path: "autorizzazioni", element: <EnvironmentAuthorizations /> },
             {
               path: "ui-personalizzazione",

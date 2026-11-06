@@ -6,85 +6,136 @@
       "title": "Events and Workflow",
       "description": "Funzioni di piattaforma per eventi e workflow.",
       "standardPlatform": true,
-      "microExecutorIds": ["me-java-batch"]
+      "microExecutorIds": ["me-java-batch"],
+      "entities": [
+        { "id": "EVENTO", "description": "Evento gestito dalla piattaforma." },
+        { "id": "WORKFLOW", "description": "Flusso di lavoro della piattaforma." }
+      ]
     },
     {
       "id": "KS_195",
       "title": "Iot Integration",
       "description": "Funzioni di piattaforma per l'integrazione IoT.",
       "standardPlatform": true,
-      "microExecutorIds": ["a37-service"]
+      "microExecutorIds": ["a37-service"],
+      "entities": [
+        { "id": "DISPOSITIVO_IOT", "description": "Dispositivo integrato nella piattaforma." }
+      ]
     },
     {
       "id": "KS_197",
       "title": "Web APIS",
       "description": "Funzioni di piattaforma per le API web.",
       "standardPlatform": true,
-      "microExecutorIds": ["me-java-restapi", "me-java-mcp-server"]
+      "microExecutorIds": ["me-java-restapi", "me-java-mcp-server"],
+      "entities": [
+        { "id": "API_WEB", "description": "API web esposta dalla piattaforma." }
+      ]
     },
     {
       "id": "KS_198",
       "title": "Report and Printing",
       "description": "Funzioni di piattaforma per report e stampa.",
       "standardPlatform": true,
-      "microExecutorIds": ["me-java-h53"]
+      "microExecutorIds": ["me-java-h53"],
+      "entities": [
+        { "id": "REPORT", "description": "Report gestito dalla piattaforma." }
+      ]
     },
     {
       "id": "KS_199",
       "title": "UFR",
       "description": "Funzioni UFR della piattaforma.",
       "standardPlatform": true,
-      "microExecutorIds": ["me-java-ufr"]
+      "microExecutorIds": ["me-java-ufr"],
+      "entities": [
+        { "id": "RISORSA_UFR", "description": "Risorsa gestita dalle funzioni UFR." }
+      ]
     },
     {
       "id": "KS_203",
       "title": "Webup.js",
       "description": "Funzioni Webup.js della piattaforma.",
       "standardPlatform": true,
-      "microExecutorIds": ["me-java-rpgle-std"]
+      "microExecutorIds": ["me-java-rpgle-std"],
+      "entities": [
+        { "id": "PAGINA_WEBUP", "description": "Pagina gestita da Webup.js." }
+      ]
     },
     {
       "id": "KS_196",
       "title": "Core functions",
       "description": "Funzioni di base della piattaforma.",
       "standardPlatform": true,
-      "microExecutorIds": ["me-java-rpgle-std"]
+      "microExecutorIds": ["me-java-rpgle-std"],
+      "entities": [
+        { "id": "OGGETTO_CORE", "description": "Oggetto delle funzioni di base." }
+      ]
     },
     {
       "id": "B£_000",
       "title": "AS400 Connector",
       "description": "Connettere gli ambienti applicativi ai servizi AS400.",
-      "microExecutorIds": ["me-java-as400proxy"]
+      "microExecutorIds": ["me-java-as400proxy"],
+      "entities": [
+        { "id": "OGGETTO_AS400", "description": "Oggetto consultabile tramite il connettore AS400." }
+      ]
+    },
+    {
+      "id": "X1_LAB",
+      "title": "LAB Services",
+      "description": "Servizi per i processi di sviluppo e l'integrazione GitHub di Smeup LAB.",
+      "microExecutorIds": ["me-java-smeuplab"],
+      "entities": [
+        { "id": "PROCESSO_SVILUPPO", "description": "Processo di sviluppo gestito da LAB Services." },
+        { "id": "INTEGRAZIONE_GITHUB", "description": "Integrazione GitHub gestita da LAB Services." }
+      ]
     },
     {
       "id": "upp-clienti",
       "title": "Gestione clienti",
       "description": "Consultare e verificare le informazioni amministrative dei clienti.",
-      "microExecutorIds": ["me-java-as400-proxy-srvlab", "me-java-e-invoice"]
+      "microExecutorIds": ["me-java-as400-proxy-srvlab", "me-java-e-invoice"],
+      "entities": [
+        { "id": "CLIENTE", "description": "Anagrafica amministrativa del cliente." }
+      ]
     },
     {
       "id": "upp-ordini",
       "title": "Gestione ordini",
       "description": "Consultare ordini, disponibilita e consegne dei clienti.",
-      "microExecutorIds": ["me-java-as400-proxy-srvlab"]
+      "microExecutorIds": ["me-java-as400-proxy-srvlab"],
+      "entities": [
+        { "id": "ORDINE", "description": "Ordine del cliente." }
+      ]
     },
     {
       "id": "upp-fatturazione",
       "title": "Fatturazione elettronica",
       "description": "Gestire e monitorare la trasmissione delle fatture elettroniche.",
-      "microExecutorIds": ["me-java-e-invoice"]
+      "microExecutorIds": ["me-java-e-invoice"],
+      "entities": [
+        { "id": "FATTURA", "description": "Fattura elettronica." }
+      ]
     },
     {
       "id": "upp-holos",
       "title": "Gestione operativa HOLOS",
       "description": "Organizzare e consultare le attivita e i flussi operativi.",
-      "microExecutorIds": ["me-node-holos"]
+      "microExecutorIds": ["me-node-holos"],
+      "entities": [
+        { "id": "ATTIVITA_HOLOS", "description": "Attività operativa HOLOS." }
+      ]
     },
     {
       "id": "HO_000",
       "title": "L64 Connector",
       "description": "Gestire le classi e le istanze di HOLOS L64.",
-      "microExecutorIds": ["me-node-holos"]
+      "microExecutorIds": ["me-node-holos"],
+      "entities": [
+        { "id": "CLASSE_L64", "description": "Classe HOLOS L64." },
+        { "id": "ISTANZA_L64", "description": "Istanza HOLOS L64." }
+      ]
     }
   ]
 }
