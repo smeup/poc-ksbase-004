@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "domains": [
+    { "domainId": "ges_10adv", "requestsPerMinute": 120, "maxRequestBytes": 1000000, "costPerCallMicroEur": 1500 },
+    { "domainId": "ges_49adv", "requestsPerMinute": 180, "maxRequestBytes": 2000000, "costPerCallMicroEur": 2000 },
+    { "domainId": "ges_11adv", "requestsPerMinute": 100, "maxRequestBytes": 1000000, "costPerCallMicroEur": 1000 },
+    { "domainId": "cliente-a", "requestsPerMinute": 60, "maxRequestBytes": 1000000, "costPerCallMicroEur": 2500 },
+    { "domainId": "cliente-b", "requestsPerMinute": 90, "maxRequestBytes": 2000000, "costPerCallMicroEur": 3000 }
+  ]
+}

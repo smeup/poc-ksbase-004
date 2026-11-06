@@ -35,8 +35,8 @@
       "grainInstance": "smeup-si",
       "title": "Smeup LAB",
       "description": "Ambiente applicativo Smeup LAB.",
-      "microExecutorIds": ["me-java-as400proxy"],
-      "uppIds": ["B£_000"],
+      "microExecutorIds": ["me-java-as400proxy", "me-java-smeuplab"],
+      "uppIds": ["B£_000", "X1_LAB"],
       "authorizations": [],
       "uiCustomization": {
         "theme": {
