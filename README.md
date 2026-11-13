@@ -5,18 +5,23 @@
 L'anagrafica mock delle istanze è in `public/data/grain-instances.json`.
 Ogni dominio in `public/data/application-domains.json` specifica l'ID
 dell'istanza di appartenenza nell'attributo obbligatorio `grainInstance`.
-La home permette di scegliere un'istanza e mostra i soli domini associati;
-un riferimento a un'istanza inesistente impedisce il caricamento della
-configurazione. Gli URL diretti dei domini rimangono disponibili.
+La home permette di scegliere un'istanza; un riferimento a un'istanza
+inesistente impedisce il caricamento della configurazione. Gli URL diretti dei
+domini rimangono disponibili.
+
+La pagina dell'istanza ha lo stesso layout delle altre: menu a sinistra e
+sezione dinamica a destra. Il menu contiene «Domini applicativi» (i domini
+dell'istanza) e «UPP» (le UPP dell'istanza, con UPP Store). Il menu del
+dominio non ha una voce UPP: le UPP si consultano dall'istanza.
 
 Smeup SI contiene Smeup BSA (`ges_10adv`), Smeup LAB (`ges_49adv`) e
-Smeup ICS (`ges_11adv`). Tutti utilizzano la UPP AS400 Connector (`B£_000`), con il
+Smeup ICS (`ges_11adv`) e le UPP AS400 Connector (`B£_000`), con il
 micro executor `me-java-as400proxy` e i servizi `LOA10_SE`, `WESER_23` e
-`JATRE_18C`. Smeup LAB include inoltre la UPP LAB Services (`X1_LAB`), con il
+`JATRE_18C`, e LAB Services (`X1_LAB`), con il
 micro executor `me-java-smeuplab` e i servizi `X1_LAB_01` (processi di
 sviluppo) e `X1_LAB_02` (integrazione GitHub). Il relativo endpoint e schema
-di configurazione sono esempi mock. HOLOS SaaS contiene Cliente A e Cliente B, entrambi associati
-alla UPP condivisa L64 Connector (`HO_000`). La UPP usa
+di configurazione sono esempi mock. HOLOS SaaS contiene Cliente A e Cliente B
+e la UPP L64 Connector (`HO_000`). La UPP usa
 `me-node-holos` e i servizi `HO_000_01` (classi) e `HO_000_02` (istanze).
 Queste associazioni sono dati mock: non configurano connessioni separate né
 garantiscono isolamento dei dati fra i clienti.
@@ -30,28 +35,38 @@ I data source mock sono definiti in `public/data/micro-executors.json` nell'arra
 ## UPP
 
 L'anagrafica mock `public/data/upp.json` contiene per ogni UPP `id`, `title`,
-`description` (obiettivo) e `microExecutorIds`. Il dominio associa le UPP
-tramite `uppIds` in `public/data/application-domains.json`. Ogni servizio
+`description` (obiettivo) e `microExecutorIds`. Le UPP sono legate
+all'istanza Grain tramite `uppIds` in `public/data/grain-instances.json`: ogni
+dominio dell'istanza le vede tutte e contiene solo le loro configurazioni
+(vedi «Configurazioni UPP del dominio»). Ogni servizio
 elenca le UPP a cui appartiene tramite `uppIds` in
 `public/data/micro-executors.json`: la pagina della UPP mostra solo questi
 servizi, non necessariamente tutti quelli dei suoi micro executor. La voce
 «Micro executors» nella pagina UPP elenca quelli associati e permette di
-aprirne il dettaglio. Lo UPP Store del dominio mostra l'intero catalogo e
-indica le UPP attive per quel dominio; è una vista in sola lettura. Una UPP
-condivisa può essere associata a più domini. Ogni micro executor riferito dalla
-UPP deve essere associato anche ai domini che la utilizzano, direttamente o
-per ereditarietà dalla piattaforma; i riferimenti incoerenti impediscono il
+aprirne il dettaglio. Lo UPP Store dell'istanza mostra
+l'intero catalogo e indica le UPP attive per l'istanza; è una vista in sola
+lettura. I riferimenti a UPP inesistenti o duplicati impediscono il
 caricamento della configurazione.
 
 Le UPP con `standardPlatform: true` sono ereditate automaticamente da ogni
-dominio, insieme ai loro micro executor, anche se non compaiono negli array
-`uppIds` e `microExecutorIds` del dominio. Sono contrassegnate dal tag
+istanza, e quindi da ogni dominio, anche se non compaiono nell'array `uppIds`
+dell'istanza. Sono contrassegnate dal tag
 «standard platform» e risultano attive nello UPP Store. Una UPP standard
 esplicitamente indicata nel dominio compare una sola volta. I servizi e i
 data source dei nuovi micro executor standard non sono specificati; gli URL
 sono esempi mock e non rappresentano endpoint verificati.
 Nella lista UPP e nello Store le UPP standard sono raccolte sotto le altre in
 una sezione espandibile, inizialmente chiusa.
+
+## Configurazioni UPP del dominio
+
+Ogni dominio definisce in `public/data/application-domains.json` l'oggetto
+`uppConfigurations`, indicizzato per ID UPP, con i valori di configurazione
+che il dominio applica a quella UPP secondo il suo schema. Le chiavi devono
+essere UPP dell'istanza del dominio o UPP standard; altrimenti la
+configurazione non viene caricata. Una UPP senza chiave risulta «Non
+configurata». I valori sono esempi mock e non vengono validati rispetto allo
+schema durante il caricamento (lo fa il test `tests/upp-configurations.test.mjs`).
 
 ## Entità delle UPP
 
@@ -60,7 +75,7 @@ con `id` e `description` per ogni entità; l'UPP che contiene l'array è quella
 di riferimento. Gli ID sono univoci all'interno della UPP. Le entità presenti
 sono esempi mock, non un catalogo di responsabilità verificato.
 La voce «Entità» della UPP mostra il suo elenco; quella del dominio aggrega
-le entità di tutte le UPP associate, incluse le standard ereditate, senza
+le entità di tutte le UPP della sua istanza, incluse le standard ereditate, senza
 confondere eventuali ID uguali appartenenti a UPP diverse. Entrambe le viste
 sono in sola lettura.
 
@@ -73,12 +88,13 @@ verifica che ogni associazione UPP/micro executor abbia uno schema e che non
 esistano riferimenti a UPP non associate.
 
 La voce «Configurazione» del dominio mostra in sola lettura tutti gli schemi
-delle UPP associate, incluse quelle standard ereditate; le UPP specifiche
+delle UPP dell'istanza, incluse quelle standard ereditate, affiancati dai
+valori impostati dal dominio in `uppConfigurations`; le UPP specifiche
 precedono quelle standard. La stessa vista è disponibile nella UPP; il micro
 executor mostra invece i propri schemi per tutte le UPP che lo utilizzano.
 Lo schema della UPP è un JSON Schema draft 2020-12 che combina i contributi
 dei suoi micro executor tramite `allOf`, senza modificarli. Le viste non
-memorizzano valori né applicano configurazioni. Nelle tre viste le proprietà
+modificano valori né applicano configurazioni. Nelle tre viste le proprietà
 esplicite sono presentate come albero con tipo e descrizione, combinando i
 contributi `allOf`; le proprietà annidate sono indentate. Gli altri vincoli
 JSON Schema non sono un editor né una rappresentazione completa dello schema:

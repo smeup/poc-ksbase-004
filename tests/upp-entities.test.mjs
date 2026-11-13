@@ -4,6 +4,10 @@ import test from "node:test";
 import { collectUppEntities, validateUppEntities } from "../src/upp-entities.ts";
 
 const read = (file) => JSON.parse(readFileSync(new URL(`../public/data/${file}.json`, import.meta.url), "utf8"));
+const instanceUpps = (domain) => {
+  const instance = read("grain-instances").grainInstances.find((item) => item.id === domain.grainInstance);
+  return (upp) => upp.standardPlatform || instance.uppIds.includes(upp.id);
+};
 
 test("ogni UPP ha entità mock valide e identificate univocamente", () => {
   const { upps } = read("upp");
@@ -13,18 +17,18 @@ test("ogni UPP ha entità mock valide e identificate univocamente", () => {
   }
 });
 
-test("l'aggregazione rispetta le UPP del dominio e le standard", () => {
+test("l'aggregazione rispetta le UPP dell'istanza del dominio e le standard", () => {
   const { upps } = read("upp");
   const { environments } = read("application-domains");
   const entitiesFor = (domainId) => {
     const domain = environments.find((item) => item.id === domainId);
-    return collectUppEntities(upps.filter((upp) => upp.standardPlatform || domain.uppIds.includes(upp.id)));
+    return collectUppEntities(upps.filter(instanceUpps(domain)));
   };
   const lab = entitiesFor("ges_49adv");
   assert.ok(lab.some(({ entity, upp }) => entity.id === "PROCESSO_SVILUPPO" && upp.id === "X1_LAB"));
   assert.ok(lab.some(({ entity, upp }) => entity.id === "EVENTO" && upp.id === "KS_194"));
   assert.ok(lab.some(({ entity, upp }) => entity.id === "OGGETTO_AS400" && upp.id === "B£_000"));
-  assert.ok(!entitiesFor("ges_10adv").some(({ upp }) => upp.id === "X1_LAB"));
+  assert.ok(entitiesFor("ges_10adv").some(({ upp }) => upp.id === "X1_LAB"));
   assert.ok(entitiesFor("cliente-a").some(({ entity, upp }) => entity.id === "CLASSE_L64" && upp.id === "HO_000"));
   assert.ok(!entitiesFor("cliente-a").some(({ upp }) => upp.id === "B£_000"));
 });

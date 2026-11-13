@@ -4,6 +4,10 @@ import test from "node:test";
 import { getDomainHealth, parseHealthChecks } from "../src/health-check.ts";
 
 const read = (file) => JSON.parse(readFileSync(new URL(`../public/data/${file}.json`, import.meta.url), "utf8"));
+const instanceUpps = (domain) => {
+  const instance = read("grain-instances").grainInstances.find((item) => item.id === domain.grainInstance);
+  return (upp) => upp.standardPlatform || instance.uppIds.includes(upp.id);
+};
 
 test("ogni dominio mostra solo le proprie UPP, incluse quelle senza dati", () => {
   const checks = parseHealthChecks({ schemaVersion: 1, checks: [
@@ -31,7 +35,7 @@ test("i dati mock coprono tutte le UPP dei domini esistenti", () => {
   const { environments } = read("application-domains");
   const { upps } = read("upp");
   for (const domain of environments) {
-    const active = upps.filter((upp) => upp.standardPlatform || domain.uppIds.includes(upp.id));
+    const active = upps.filter(instanceUpps(domain));
     const rows = getDomainHealth(domain.id, active, checks);
     assert.ok(rows.some(({ health }) => health.status === "healthy"), domain.id);
     assert.ok(rows.some(({ health }) => health.status === "error"), domain.id);

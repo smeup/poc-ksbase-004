@@ -4,14 +4,16 @@ import test from "node:test";
 
 const read = (file) => JSON.parse(readFileSync(new URL(`../public/data/${file}.json`, import.meta.url), "utf8"));
 
-test("i codici dei connettori sono coerenti in domini, servizi e schemi", () => {
+test("i codici dei connettori sono coerenti in istanze, domini, servizi e schemi", () => {
   const { environments } = read("application-domains");
+  const { grainInstances } = read("grain-instances");
   const { upps } = read("upp");
   const { microExecutors } = read("micro-executors");
   const cases = [
     {
       id: "B£_000",
       title: "AS400 Connector",
+      instance: "smeup-si",
       domains: ["ges_10adv", "ges_49adv", "ges_11adv"],
       executor: "me-java-as400proxy",
       services: ["LOA10_SE", "WESER_23", "JATRE_18C"],
@@ -19,17 +21,21 @@ test("i codici dei connettori sono coerenti in domini, servizi e schemi", () => 
     {
       id: "HO_000",
       title: "L64 Connector",
+      instance: "holos-saas",
       domains: ["cliente-a", "cliente-b"],
       executor: "me-node-holos",
       services: ["HO_000_01", "HO_000_02"],
     },
   ];
 
-  for (const { id, title, domains, executor, services } of cases) {
+  for (const { id, title, instance, domains, executor, services } of cases) {
     const upp = upps.find((item) => item.title === title);
     assert.equal(upp?.id, id);
     assert.deepEqual(upp.microExecutorIds, [executor]);
-    assert.deepEqual(environments.filter((item) => item.uppIds.includes(id)).map((item) => item.id), domains);
+    assert.deepEqual(grainInstances.filter((item) => item.uppIds.includes(id)).map((item) => item.id), [instance]);
+    const configured = environments.filter((item) => Object.hasOwn(item.uppConfigurations, id));
+    assert.deepEqual(configured.map((item) => item.id), domains);
+    assert.ok(configured.every((item) => item.grainInstance === instance));
     const microExecutor = microExecutors.find((item) => item.id === executor);
     assert.ok(Object.hasOwn(microExecutor.uppConfigurationSchemas, id));
     assert.deepEqual(microExecutor.apis.filter((api) => api.uppIds.includes(id)).map((api) => api.id), services);

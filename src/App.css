@@ -1005,8 +1005,24 @@
   color: var(--accent);
 }
 
-.configuration-properties td:last-child {
+.configuration-properties td:nth-child(3) {
   color: var(--muted);
+}
+
+.configuration-properties td.configuration-value {
+  color: var(--ink);
+}
+
+.configuration-value-missing {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.configuration-schema-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .configuration-schema-note {

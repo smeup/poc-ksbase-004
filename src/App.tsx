@@ -15,7 +15,12 @@ import {
 } from "react-router-dom";
 import { parseDomainCapacities } from "./domain-capacity";
 import { getDomainHealth, parseHealthChecks } from "./health-check";
-import { getSchemaProperties, type JsonSchema } from "./schema-properties";
+import {
+  getConfigurationValue,
+  getSchemaProperties,
+  type JsonSchema,
+  type JsonValue,
+} from "./schema-properties";
 import { collectUppEntities, validateUppEntities, type UppEntity } from "./upp-entities";
 import "./App.css";
 
@@ -82,15 +87,17 @@ type GrainInstance = {
   id: string;
   title: string;
   description: string;
+  uppIds: string[];
 };
+
+type UppConfigurationValues = { [key: string]: JsonValue };
 
 type ApplicationDomain = {
   id: string;
   grainInstance: string;
   title: string;
   description: string;
-  microExecutorIds: string[];
-  uppIds: string[];
+  uppConfigurations: Record<string, UppConfigurationValues>;
   authorizations: Authorization[];
   uiCustomization: UiCustomization;
 };
@@ -122,10 +129,17 @@ type ApplicationConfiguration = {
   upps: Upp[];
 };
 
-type EnvironmentContext = {
-  environment: ApplicationDomain;
+type GrainInstanceContext = {
+  instance: GrainInstance;
+  environments: ApplicationDomain[];
   upps: Upp[];
   uppCatalog: Upp[];
+};
+
+type EnvironmentContext = {
+  instance: GrainInstance;
+  environment: ApplicationDomain;
+  upps: Upp[];
   microExecutors: MicroExecutor[];
 };
 
@@ -251,13 +265,20 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     microExecutorConfiguration.microExecutors.map((item) => [item.id, item]),
   );
   const uppsById = new Map(uppConfiguration.upps.map((item) => [item.id, item]));
-  const instanceIds = new Set<string>();
+  const instancesById = new Map<string, GrainInstance>();
 
   for (const instance of instanceConfiguration.grainInstances) {
-    if (typeof instance.id !== "string" || !instance.id.trim() || instanceIds.has(instance.id)) {
+    if (typeof instance.id !== "string" || !instance.id.trim() || instancesById.has(instance.id)) {
       throw new Error(`ID istanza Grain non valido o duplicato: ${instance.id}.`);
     }
-    instanceIds.add(instance.id);
+    if (
+      !Array.isArray(instance.uppIds) ||
+      new Set(instance.uppIds).size !== instance.uppIds.length ||
+      instance.uppIds.some((id) => typeof id !== "string" || !uppsById.has(id))
+    ) {
+      throw new Error(`UPP non valide o duplicate per l'istanza Grain ${instance.id}.`);
+    }
+    instancesById.set(instance.id, instance);
   }
 
   for (const upp of uppConfiguration.upps) {
@@ -307,13 +328,9 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
       }
     }
   }
-  const platformExecutorIds = new Set(
-    uppConfiguration.upps
-      .filter((upp) => upp.standardPlatform)
-      .flatMap((upp) => upp.microExecutorIds),
-  );
   for (const environment of domainConfiguration.environments) {
-    if (typeof environment.grainInstance !== "string" || !instanceIds.has(environment.grainInstance)) {
+    const instance = instancesById.get(environment.grainInstance);
+    if (typeof environment.grainInstance !== "string" || !instance) {
       throw new Error(`Istanza Grain non valida per il dominio ${environment.id}.`);
     }
     if (
@@ -328,17 +345,17 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     ) {
       throw new Error(`Autorizzazioni non valide per il dominio ${environment.id}.`);
     }
-    for (const id of environment.microExecutorIds) {
-      if (!microExecutorsById.has(id)) {
-        throw new Error(`Micro executor ${id} non trovato per il dominio ${environment.id}.`);
-      }
+    const { uppConfigurations } = environment;
+    if (!uppConfigurations || typeof uppConfigurations !== "object" || Array.isArray(uppConfigurations)) {
+      throw new Error(`Configurazioni UPP non valide per il dominio ${environment.id}.`);
     }
-    for (const id of environment.uppIds) {
-      const upp = uppsById.get(id);
-      if (!upp || upp.microExecutorIds.some(
-        (executorId) => !environment.microExecutorIds.includes(executorId) && !platformExecutorIds.has(executorId),
-      )) {
-        throw new Error(`UPP ${id} non valida per il dominio ${environment.id}.`);
+    for (const [uppId, values] of Object.entries(uppConfigurations)) {
+      const upp = uppsById.get(uppId);
+      if (!upp || (!upp.standardPlatform && !instance.uppIds.includes(uppId))) {
+        throw new Error(`La UPP ${uppId} configurata nel dominio ${environment.id} non appartiene all'istanza ${instance.id}.`);
+      }
+      if (!values || typeof values !== "object" || Array.isArray(values)) {
+        throw new Error(`Configurazione non valida per la UPP ${uppId} nel dominio ${environment.id}.`);
       }
     }
   }
@@ -439,69 +456,118 @@ function GrainInstanceSelection() {
   );
 }
 
-function EnvironmentSelection() {
-  const { grainInstances, environments } = useOutletContext<ApplicationConfiguration>();
+/** UPP visibili in un'istanza: quelle associate all'istanza più le standard platform. */
+function getInstanceUpps(instance: GrainInstance, upps: Upp[]): Upp[] {
+  return upps.filter((upp) => upp.standardPlatform || instance.uppIds.includes(upp.id));
+}
+
+function GrainInstanceLayout() {
+  const configuration = useOutletContext<ApplicationConfiguration>();
   const { instanceId } = useParams();
-  const instance = grainInstances.find((item) => item.id === instanceId);
+  const instance = configuration.grainInstances.find((item) => item.id === instanceId);
+  const [isJsonOpen, setIsJsonOpen] = useState(false);
 
   if (!instance) {
     return <NotFoundPage />;
   }
 
-  const instanceEnvironments = environments.filter(
-    (environment) => environment.grainInstance === instance.id,
-  );
+  const context: GrainInstanceContext = {
+    instance,
+    environments: configuration.environments.filter(
+      (environment) => environment.grainInstance === instance.id,
+    ),
+    upps: getInstanceUpps(instance, configuration.upps),
+    uppCatalog: configuration.upps,
+  };
 
   return (
-    <main className="site-main">
+    <main className="site-main environment-main">
       <div className="environment-breadcrumb">
         <Link to="/">Istanze Grain</Link>
         <span aria-hidden="true">/</span>
         <span>{instance.title}</span>
       </div>
-      <p className="eyebrow page-eyebrow">Istanza Grain / domini applicativi</p>
-      <div className="page-heading">
+
+      <div className="environment-layout">
+        <aside className="environment-sidebar" aria-label="Menu istanza">
+          <section className="environment-summary-card" aria-labelledby="instance-title">
+            <p className="eyebrow">Istanza Grain</p>
+            <h1 id="instance-title">{instance.title}</h1>
+            <button className="json-trigger" type="button" onClick={() => setIsJsonOpen(true)}>
+              Mostra JSON
+            </button>
+          </section>
+          <div className="environment-sidebar-menu">
+            <p className="sidebar-caption">Menu istanza</p>
+            <nav className="sidebar-nav">
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="domini" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Domini applicativi
+              </NavLink>
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="upp">
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                UPP
+              </NavLink>
+            </nav>
+          </div>
+        </aside>
+
+        <div className="environment-outlet">
+          <Outlet context={context} />
+        </div>
+      </div>
+      {isJsonOpen && (
+        <JsonDialog
+          title={instance.title}
+          id={instance.id}
+          value={instance}
+          onClose={() => setIsJsonOpen(false)}
+        />
+      )}
+    </main>
+  );
+}
+
+function GrainInstanceDomains() {
+  const { instance, environments } = useOutletContext<GrainInstanceContext>();
+
+  return (
+    <section aria-labelledby="instance-domains-heading">
+      <div className="detail-heading">
         <div>
-          <h1>{instance.title}</h1>
-          <p className="page-intro">Scegli un dominio applicativo di questa istanza.</p>
+          <p className="eyebrow">Istanza Grain · {instance.title}</p>
+          <h2 id="instance-domains-heading">Domini applicativi</h2>
         </div>
-        <div className="environment-total">
-          <span>{String(instanceEnvironments.length).padStart(2, "0")}</span>
-          <span>domini disponibili</span>
-        </div>
+        <span className="detail-format">{environments.length} domini</span>
       </div>
-      <div className="section-rule">
-        <span>Domini registrati</span>
-        <span>Seleziona per entrare</span>
-      </div>
-      {instanceEnvironments.length === 0 ? (
+      <p className="page-intro api-intro">
+        Domini applicativi di questa istanza. Ogni dominio vede tutte le UPP
+        dell'istanza e le configura in base alle proprie esigenze.
+      </p>
+      {environments.length === 0 ? (
         <p className="page-intro">Nessun dominio associato a questa istanza.</p>
       ) : (
-        <div className="environment-grid">
-          {instanceEnvironments.map((environment, index) => (
+        <div className="micro-executor-list">
+          {environments.map((environment) => (
             <Link
-              className="environment-card"
+              className="micro-executor-card"
               key={environment.id}
               to={`/applicative-domain/${environment.id}`}
             >
-              <div className="environment-card-top">
+              <div className="micro-executor-card-top">
                 <span className="environment-id">{environment.id}</span>
-                <span className="environment-index">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
               </div>
-              <div className="environment-card-copy">
-                <h2>{environment.title}</h2>
-                <p>{environment.description}</p>
-              </div>
-              <div className="environment-card-action">
-                Apri ambiente <span aria-hidden="true">-&gt;</span>
+              <h3>{environment.title}</h3>
+              <p>{environment.description}</p>
+              <div className="micro-executor-card-action">
+                <span>Dominio applicativo</span>
+                <span>Apri <span aria-hidden="true">-&gt;</span></span>
               </div>
             </Link>
           ))}
         </div>
       )}
-    </main>
+    </section>
   );
 }
 
@@ -896,9 +962,9 @@ function EnvironmentLayout() {
   }
 
   const environmentContext: EnvironmentContext = {
+    instance,
     environment,
-    upps: configuration.upps.filter((upp) => upp.standardPlatform || environment.uppIds.includes(upp.id)),
-    uppCatalog: configuration.upps,
+    upps: getInstanceUpps(instance, configuration.upps),
     microExecutors: configuration.microExecutors,
   };
 
@@ -970,15 +1036,6 @@ function EnvironmentLayout() {
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Configurazione
-              </NavLink>
-              <NavLink
-                className={({ isActive }) =>
-                  `sidebar-link${isActive ? " is-active" : ""}`
-                }
-                to="upp"
-              >
-                <span className="sidebar-link-marker" aria-hidden="true" />
-                UPP
               </NavLink>
               <NavLink
                 className={({ isActive }) =>
@@ -1486,25 +1543,38 @@ function getUppSchema(upp: Upp, microExecutors: MicroExecutor[]): JsonSchema | n
 
 function ConfigurationSchemas({
   entries,
+  showValues = false,
 }: {
-  entries: { upp: Upp; schema: JsonSchema | null }[];
+  entries: { upp: Upp; schema: JsonSchema | null; configuration?: UppConfigurationValues }[];
+  showValues?: boolean;
 }) {
   if (entries.length === 0) {
     return <p className="page-intro">Nessuna UPP associata.</p>;
   }
   return (
     <div className="configuration-schema-list">
-      {entries.map(({ upp, schema }) => (
+      {entries.map(({ upp, schema, configuration }) => (
         <section className="configuration-schema" key={upp.id} aria-labelledby={`schema-${upp.id}`}>
           <div className="configuration-schema-heading">
             <div>
               <span className="environment-id">{upp.id}</span>
               <h3 id={`schema-${upp.id}`}>{upp.title}</h3>
             </div>
-            {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
+            <div className="configuration-schema-tags">
+              {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
+              {showValues && (
+                <span className={`upp-status${configuration ? " is-active" : ""}`}>
+                  {configuration ? "Configurata" : "Non configurata"}
+                </span>
+              )}
+            </div>
           </div>
           {schema ? (
-            <SchemaProperties schema={schema} title={upp.title} />
+            <SchemaProperties
+              schema={schema}
+              title={upp.title}
+              values={showValues ? { configuration } : undefined}
+            />
           ) : (
             <p className="page-intro">Nessuno schema di configurazione disponibile.</p>
           )}
@@ -1514,7 +1584,25 @@ function ConfigurationSchemas({
   );
 }
 
-function SchemaProperties({ schema, title }: { schema: JsonSchema; title: string }) {
+function formatConfigurationValue(value: JsonValue | undefined) {
+  if (value === undefined) {
+    return <span className="configuration-value-missing">Non impostato</span>;
+  }
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    return null;
+  }
+  return <code>{typeof value === "string" ? value : JSON.stringify(value)}</code>;
+}
+
+function SchemaProperties({
+  schema,
+  title,
+  values,
+}: {
+  schema: JsonSchema;
+  title: string;
+  values?: { configuration: UppConfigurationValues | undefined };
+}) {
   const { properties, unrepresented } = getSchemaProperties(schema);
 
   return (
@@ -1529,6 +1617,7 @@ function SchemaProperties({ schema, title }: { schema: JsonSchema; title: string
                 <th scope="col">Proprietà</th>
                 <th scope="col">Tipo</th>
                 <th scope="col">Descrizione</th>
+                {values && <th scope="col">Valore del dominio</th>}
               </tr>
             </thead>
             <tbody>
@@ -1539,6 +1628,9 @@ function SchemaProperties({ schema, title }: { schema: JsonSchema; title: string
                   </th>
                   <td><code>{property.type}</code></td>
                   <td>{property.description}</td>
+                  {values && (
+                    <td className="configuration-value">{formatConfigurationValue(getConfigurationValue(values.configuration, property.segments))}</td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1571,13 +1663,19 @@ function EnvironmentConfigurationPage() {
         <span className="detail-format">{upps.length} UPP</span>
       </div>
       <p className="page-intro api-intro">
-        Schemi di configurazione delle UPP associate, incluse quelle standard.
-        Gli schemi sono esempi mock in sola lettura.
+        Il dominio vede tutte le UPP dell'istanza, incluse quelle standard, e
+        le configura in base alle proprie esigenze. Per ogni proprietà dello
+        schema è indicato il valore impostato dal dominio. I valori sono esempi
+        mock in sola lettura.
       </p>
-      <ConfigurationSchemas entries={orderedUpps.map((upp) => ({
-        upp,
-        schema: getUppSchema(upp, microExecutors),
-      }))} />
+      <ConfigurationSchemas
+        showValues
+        entries={orderedUpps.map((upp) => ({
+          upp,
+          schema: getUppSchema(upp, microExecutors),
+          configuration: environment.uppConfigurations[upp.id],
+        }))}
+      />
     </section>
   );
 }
@@ -1704,15 +1802,15 @@ function UppEntities() {
   );
 }
 
-function EnvironmentUpps() {
-  const { environment, upps } = useOutletContext<EnvironmentContext>();
+function InstanceUpps() {
+  const { instance, upps } = useOutletContext<GrainInstanceContext>();
 
   return (
-    <section aria-labelledby="environment-upp-heading">
+    <section aria-labelledby="upp-list-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Dominio applicativo</p>
-          <h2 id="environment-upp-heading">UPP</h2>
+          <p className="eyebrow">Istanza Grain · {instance.title}</p>
+          <h2 id="upp-list-heading">UPP</h2>
         </div>
         <div className="upp-heading-actions">
           <span className="detail-format">{upps.length} UPP</span>
@@ -1720,8 +1818,9 @@ function EnvironmentUpps() {
         </div>
       </div>
       <p className="page-intro api-intro">
-        UPP associate al dominio applicativo {environment.title}, comprese quelle
-        standard ereditate dalla piattaforma.
+        UPP dell'istanza {instance.title}, comprese quelle standard ereditate
+        dalla piattaforma. Sono disponibili in tutti i domini dell'istanza, che
+        le configurano in base alle proprie esigenze.
       </p>
       {upps.length === 0 ? (
         <p className="page-intro">Nessuna UPP associata.</p>
@@ -1801,25 +1900,25 @@ function UppCard({ upp, active }: { upp: Upp; active?: boolean }) {
   );
 }
 
-function UppStore() {
-  const { environment, upps, uppCatalog } = useOutletContext<EnvironmentContext>();
+function InstanceUppStore() {
+  const { instance, upps, uppCatalog } = useOutletContext<GrainInstanceContext>();
   const activeUppIds = new Set(upps.map((upp) => upp.id));
 
   return (
     <section aria-labelledby="upp-store-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <p className="eyebrow">Istanza Grain · {instance.title}</p>
           <h2 id="upp-store-heading">UPP Store</h2>
         </div>
-        <Link className="message-link" to={`/applicative-domain/${environment.id}/upp`}>
+        <Link className="message-link" to=".." relative="path">
           Torna alle UPP
         </Link>
       </div>
       <p className="page-intro api-intro">
-        Catalogo completo delle UPP. Lo stato indica se sono associate al dominio
-        {` ${environment.title}`}, anche tramite ereditarietà dalla piattaforma;
-        questa vista è in sola lettura.
+        Catalogo completo delle UPP. Lo stato indica se sono associate
+        all'istanza {instance.title}, anche tramite ereditarietà dalla
+        piattaforma; questa vista è in sola lettura.
       </p>
       {uppCatalog.length === 0 ? (
         <p className="page-intro">Nessuna UPP presente nel catalogo.</p>
@@ -2324,7 +2423,16 @@ const router = createBrowserRouter(
       errorElement: <ConfigurationError />,
       children: [
         { index: true, element: <GrainInstanceSelection /> },
-        { path: "grain-instances/:instanceId", element: <EnvironmentSelection /> },
+        {
+          path: "grain-instances/:instanceId",
+          element: <GrainInstanceLayout />,
+          children: [
+            { index: true, element: <Navigate to="domini" replace /> },
+            { path: "domini", element: <GrainInstanceDomains /> },
+            { path: "upp", element: <InstanceUpps /> },
+            { path: "upp/store", element: <InstanceUppStore /> },
+          ],
+        },
         {
           path: "analisi",
           element: <AnalysisLayout />,
@@ -2379,8 +2487,6 @@ const router = createBrowserRouter(
             { path: "configurazione", element: <EnvironmentConfigurationPage /> },
             { path: "health-check", loader: loadHealthChecks, element: <EnvironmentHealthCheck />, errorElement: <DomainMockDataError title="Health check" /> },
             { path: "capacita-limiti", loader: loadDomainCapacities, element: <EnvironmentCapacity />, errorElement: <DomainMockDataError title="Capacità e limiti" /> },
-            { path: "upp", element: <EnvironmentUpps /> },
-            { path: "upp/store", element: <UppStore /> },
             { path: "entita", element: <EnvironmentEntities /> },
             { path: "autorizzazioni", element: <EnvironmentAuthorizations /> },
             {

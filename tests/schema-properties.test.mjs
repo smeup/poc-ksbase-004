@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-import { getSchemaProperties } from "../src/schema-properties.ts";
+import { getConfigurationValue, getSchemaProperties } from "../src/schema-properties.ts";
 
 test("combina le proprietà annidate degli schemi allOf senza duplicarle", () => {
   const result = getSchemaProperties({
@@ -61,4 +61,24 @@ test("mostra tutte le proprietà degli schemi mock attuali", () => {
       assert.deepEqual(result.unrepresented, [], `${executor.id}: ${uppId}`);
     }
   }
+});
+
+test("legge i valori configurati seguendo i segmenti delle proprietà", () => {
+  const { properties } = getSchemaProperties({
+    properties: {
+      as400: { type: "object", properties: { host: { type: "string" }, "nome libreria": { type: "string" } } },
+      servers: { type: "array", items: { type: "string" } },
+    },
+  });
+  const configuration = { as400: { host: "srv", "nome libreria": "LIB" }, servers: ["a"] };
+  const values = Object.fromEntries(properties.map(({ path, segments }) => [path, getConfigurationValue(configuration, segments)]));
+  assert.deepEqual(values, {
+    as400: configuration.as400,
+    "as400.host": "srv",
+    'as400["nome libreria"]': "LIB",
+    servers: ["a"],
+    "servers[]": undefined,
+  });
+  assert.equal(getConfigurationValue(undefined, ["as400"]), undefined);
+  assert.equal(getConfigurationValue({ as400: "x" }, ["as400", "host"]), undefined);
 });
