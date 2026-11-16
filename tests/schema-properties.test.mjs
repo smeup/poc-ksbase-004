@@ -55,10 +55,10 @@ test("distingue i percorsi quando un nome contiene punti o parentesi", () => {
 test("mostra tutte le proprietà degli schemi mock attuali", () => {
   const data = JSON.parse(readFileSync(new URL("../public/data/micro-executors.json", import.meta.url), "utf8"));
   for (const executor of data.microExecutors) {
-    for (const [uppId, schema] of Object.entries(executor.uppConfigurationSchemas)) {
+    for (const [packageId, schema] of Object.entries(executor.packageConfigurationSchemas)) {
       const result = getSchemaProperties(schema);
-      assert.ok(result.properties.length > 0, `${executor.id}: ${uppId}`);
-      assert.deepEqual(result.unrepresented, [], `${executor.id}: ${uppId}`);
+      assert.ok(result.properties.length > 0, `${executor.id}: ${packageId}`);
+      assert.deepEqual(result.unrepresented, [], `${executor.id}: ${packageId}`);
     }
   }
 });

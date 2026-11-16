@@ -1,30 +1,17 @@
 # React + TypeScript + Vite
 
-## Istanze Grain e domini applicativi
+## Navigazione e domini applicativi
 
-L'anagrafica mock delle istanze è in `public/data/grain-instances.json`.
-Ogni dominio in `public/data/application-domains.json` specifica l'ID
-dell'istanza di appartenenza nell'attributo obbligatorio `grainInstance`.
-La home permette di scegliere un'istanza; un riferimento a un'istanza
-inesistente impedisce il caricamento della configurazione. Gli URL diretti dei
-domini rimangono disponibili.
+L'istanza Grain è sempre Smeup SI: non esiste un'anagrafica delle istanze né
+una pagina per sceglierle. L'amministrazione è sotto `/app/administration`,
+che apre direttamente il layout con menu a sinistra («Domini applicativi» e
+«Packages») e sezione dinamica a destra; da qui si raggiunge anche l'«Analisi».
+Il menu del dominio non ha una voce Packages: i package si consultano
+dall'amministrazione. Ogni altro percorso `/app/:id` mostra la pagina di
+fallback «Runtime dominio applicativo :id».
 
-La pagina dell'istanza ha lo stesso layout delle altre: menu a sinistra e
-sezione dinamica a destra. Il menu contiene «Domini applicativi» (i domini
-dell'istanza) e «UPP» (le UPP dell'istanza, con UPP Store). Il menu del
-dominio non ha una voce UPP: le UPP si consultano dall'istanza.
-
-Smeup SI contiene Smeup BSA (`ges_10adv`), Smeup LAB (`ges_49adv`) e
-Smeup ICS (`ges_11adv`) e le UPP AS400 Connector (`B£_000`), con il
-micro executor `me-java-as400proxy` e i servizi `LOA10_SE`, `WESER_23` e
-`JATRE_18C`, e LAB Services (`X1_LAB`), con il
-micro executor `me-java-smeuplab` e i servizi `X1_LAB_01` (processi di
-sviluppo) e `X1_LAB_02` (integrazione GitHub). Il relativo endpoint e schema
-di configurazione sono esempi mock. HOLOS SaaS contiene Cliente A e Cliente B
-e la UPP L64 Connector (`HO_000`). La UPP usa
-`me-node-holos` e i servizi `HO_000_01` (classi) e `HO_000_02` (istanze).
-Queste associazioni sono dati mock: non configurano connessioni separate né
-garantiscono isolamento dei dati fra i clienti.
+I domini sono in `public/data/application-domains.json`: Smeup BSA
+(`ges_10adv`), Smeup LAB (`ges_49adv`) e Smeup ICS (`ges_11adv`).
 
 ## Data sources
 
@@ -32,67 +19,67 @@ I data source mock sono definiti in `public/data/micro-executors.json` nell'arra
 `dataSources` del micro executor responsabile. Ogni elemento contiene `id`,
 `title`, `type` e `description` ed è visibile nella pagina del micro executor.
 
-## UPP
+## Packages
 
-L'anagrafica mock `public/data/upp.json` contiene per ogni UPP `id`, `title`,
-`description` (obiettivo) e `microExecutorIds`. Le UPP sono legate
-all'istanza Grain tramite `uppIds` in `public/data/grain-instances.json`: ogni
-dominio dell'istanza le vede tutte e contiene solo le loro configurazioni
-(vedi «Configurazioni UPP del dominio»). Ogni servizio
-elenca le UPP a cui appartiene tramite `uppIds` in
-`public/data/micro-executors.json`: la pagina della UPP mostra solo questi
-servizi, non necessariamente tutti quelli dei suoi micro executor. La voce
-«Micro executors» nella pagina UPP elenca quelli associati e permette di
-aprirne il dettaglio. Lo UPP Store dell'istanza mostra
-l'intero catalogo e indica le UPP attive per l'istanza; è una vista in sola
-lettura. I riferimenti a UPP inesistenti o duplicati impediscono il
-caricamento della configurazione.
+L'anagrafica mock `public/data/packages.json` contiene per ogni package `id`,
+`title`, `description`, `microExecutorIds`, `installed` ed `entities`:
 
-Le UPP con `standardPlatform: true` sono ereditate automaticamente da ogni
-istanza, e quindi da ogni dominio, anche se non compaiono nell'array `uppIds`
-dell'istanza. Sono contrassegnate dal tag
-«standard platform» e risultano attive nello UPP Store. Una UPP standard
-esplicitamente indicata nel dominio compare una sola volta. I servizi e i
-data source dei nuovi micro executor standard non sono specificati; gli URL
-sono esempi mock e non rappresentano endpoint verificati.
-Nella lista UPP e nello Store le UPP standard sono raccolte sotto le altre in
-una sezione espandibile, inizialmente chiusa.
+| Package | ID | Micro executor | Installato |
+| --- | --- | --- | --- |
+| Smeup ES | `smeup-es` | `me-java-as400proxy`, `me-java-h53` | sì |
+| HOLOS | `holos` | `me-node-holos` | sì |
+| Smeup Multipiattaforma | `smeup-multipiattaforma` | `me-java-rpgle-std` | no |
+| Evodoc | `evodoc` | `me-java-evodoc` | no |
+| Archismall | `archismall` | `me-java-archismall` | no |
 
-## Configurazioni UPP del dominio
+La voce «Packages» mostra solo i package installati sull'istanza Grain
+(`installed: true`); il bottone «Package Store» apre il catalogo completo, con
+lo stato di installazione di ogni package. Lo Store è in sola lettura: non
+installa né disinstalla. Evodoc e Archismall, con i loro micro executor,
+servizi e data source, sono esempi inventati.
+
+Ogni dominio vede tutti i package installati e contiene solo le loro
+configurazioni (vedi «Configurazioni package del dominio»). Ogni servizio
+elenca i package a cui appartiene tramite `packageIds` in
+`public/data/micro-executors.json`: la pagina del package mostra solo questi
+servizi. La voce «Micro executors» nella pagina del package elenca quelli
+associati e permette di aprirne il dettaglio. I riferimenti a package
+inesistenti impediscono il caricamento della configurazione. Gli URL dei
+micro executor sono esempi mock.
+
+## Configurazioni package del dominio
 
 Ogni dominio definisce in `public/data/application-domains.json` l'oggetto
-`uppConfigurations`, indicizzato per ID UPP, con i valori di configurazione
-che il dominio applica a quella UPP secondo il suo schema. Le chiavi devono
-essere UPP dell'istanza del dominio o UPP standard; altrimenti la
-configurazione non viene caricata. Una UPP senza chiave risulta «Non
-configurata». I valori sono esempi mock e non vengono validati rispetto allo
-schema durante il caricamento (lo fa il test `tests/upp-configurations.test.mjs`).
+`packageConfigurations`, indicizzato per ID package, con i valori di
+configurazione che il dominio applica a quel package secondo il suo schema. Le
+chiavi devono essere package esistenti e installati; altrimenti la configurazione non viene
+caricata. Un package senza chiave risulta «Non configurato». I valori sono esempi mock e non vengono validati rispetto allo
+schema durante il caricamento (lo fa il test `tests/package-configurations.test.mjs`).
 
-## Entità delle UPP
+## Entità dei package
 
-Ogni UPP definisce in `public/data/upp.json` l'array obbligatorio `entities`,
-con `id` e `description` per ogni entità; l'UPP che contiene l'array è quella
-di riferimento. Gli ID sono univoci all'interno della UPP. Le entità presenti
+Ogni package definisce in `public/data/packages.json` l'array obbligatorio
+`entities`, con `id` e `description` per ogni entità; il package che contiene
+l'array è quello di riferimento. Gli ID sono univoci all'interno del package. Le entità presenti
 sono esempi mock, non un catalogo di responsabilità verificato.
-La voce «Entità» della UPP mostra il suo elenco; quella del dominio aggrega
-le entità di tutte le UPP della sua istanza, incluse le standard ereditate, senza
-confondere eventuali ID uguali appartenenti a UPP diverse. Entrambe le viste
+La voce «Entità» del package mostra il suo elenco; quella del dominio aggrega
+le entità di tutti i package, senza confondere eventuali ID uguali
+appartenenti a package diversi. Entrambe le viste
 sono in sola lettura.
 
 ## Schemi di configurazione
 
-Ogni micro executor definisce in `uppConfigurationSchemas` uno schema JSON per
-ciascuna UPP che lo utilizza, indicizzata per ID UPP. Gli schemi sono esempi
+Ogni micro executor definisce in `packageConfigurationSchemas` uno schema JSON
+per ciascun package che lo utilizza, indicizzato per ID package. Gli schemi sono esempi
 mock, non la documentazione di parametri effettivi. La configurazione
-verifica che ogni associazione UPP/micro executor abbia uno schema e che non
-esistano riferimenti a UPP non associate.
+verifica che ogni associazione package/micro executor abbia uno schema e che
+non esistano riferimenti a package non associati.
 
 La voce «Configurazione» del dominio mostra in sola lettura tutti gli schemi
-delle UPP dell'istanza, incluse quelle standard ereditate, affiancati dai
-valori impostati dal dominio in `uppConfigurations`; le UPP specifiche
-precedono quelle standard. La stessa vista è disponibile nella UPP; il micro
-executor mostra invece i propri schemi per tutte le UPP che lo utilizzano.
-Lo schema della UPP è un JSON Schema draft 2020-12 che combina i contributi
+di tutti i package, affiancati dai valori impostati dal dominio in
+`packageConfigurations`. La stessa vista è disponibile nel package; il micro
+executor mostra invece i propri schemi per tutti i package che lo utilizzano.
+Lo schema del package è un JSON Schema draft 2020-12 che combina i contributi
 dei suoi micro executor tramite `allOf`, senza modificarli. Le viste non
 modificano valori né applicano configurazioni. Nelle tre viste le proprietà
 esplicite sono presentate come albero con tipo e descrizione, combinando i
@@ -106,12 +93,11 @@ con Node.js 22.
 
 ## Health check
 
-La voce «Health check» del dominio mostra tutte le sue UPP, incluse quelle
-standard, con un riepilogo degli stati e la causa per ogni errore.
-I dati in `public/data/upp-health.json` sono **simulati**: non viene
-interrogato alcun servizio e gli stati non indicano la salute reale delle UPP.
-Ogni record associa `domainId` e `uppId` a uno stato `healthy` oppure `error`;
-per `error` è obbligatorio indicare `reason`. Una UPP senza record per il
+La voce «Health check» del dominio mostra tutti i suoi package, con un riepilogo degli stati e la causa per ogni errore.
+I dati in `public/data/package-health.json` sono **simulati**: non viene
+interrogato alcun servizio e gli stati non indicano la salute reale dei package.
+Ogni record associa `domainId` e `packageId` a uno stato `healthy` oppure `error`;
+per `error` è obbligatorio indicare `reason`. Un package senza record per il
 dominio compare come «Non disponibile». Dati non validi o non caricabili sono
 segnalati nella dashboard, senza impedire l'accesso alle altre pagine.
 
@@ -131,8 +117,8 @@ impedire l'accesso alle altre pagine.
 Ogni dominio definisce `authorizations` in
 `public/data/application-domains.json` come lista di oggetti con `key` (stringa)
 e `allowed` (booleano): `true` per consentire e `false` per negare. I formati
-illustrati sono `*` (dominio), `<id_upp>`, `<id_upp>.<id_servizio>` e
-`<id_upp>.<id_servizio>-<funzione-metodo>`. La pagina del dominio mostra i
+illustrati sono `*` (dominio), `<id_package>`, `<id_package>.<id_servizio>` e
+`<id_package>.<id_servizio>-<funzione-metodo>`. La pagina del dominio mostra i
 valori in sola lettura e verifica che la struttura sia valida, ma non applica
 controlli di accesso né definisce precedenze o comportamento predefinito. I
 nomi delle funzioni negli esempi sono illustrativi.

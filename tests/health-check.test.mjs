@@ -4,16 +4,12 @@ import test from "node:test";
 import { getDomainHealth, parseHealthChecks } from "../src/health-check.ts";
 
 const read = (file) => JSON.parse(readFileSync(new URL(`../public/data/${file}.json`, import.meta.url), "utf8"));
-const instanceUpps = (domain) => {
-  const instance = read("grain-instances").grainInstances.find((item) => item.id === domain.grainInstance);
-  return (upp) => upp.standardPlatform || instance.uppIds.includes(upp.id);
-};
 
-test("ogni dominio mostra solo le proprie UPP, incluse quelle senza dati", () => {
+test("ogni dominio mostra solo i propri package, inclusi quelli senza dati", () => {
   const checks = parseHealthChecks({ schemaVersion: 1, checks: [
-    { domainId: "a", uppId: "one", status: "healthy" },
-    { domainId: "b", uppId: "one", status: "error", reason: "Errore B" },
-    { domainId: "a", uppId: "two", status: "error", reason: "Errore A" },
+    { domainId: "a", packageId: "one", status: "healthy" },
+    { domainId: "b", packageId: "one", status: "error", reason: "Errore B" },
+    { domainId: "a", packageId: "two", status: "error", reason: "Errore A" },
   ] });
   const rows = getDomainHealth("a", [{ id: "one" }, { id: "two" }, { id: "three" }], checks);
   assert.deepEqual(rows.map(({ health }) => health.status), ["healthy", "error", "unknown"]);
@@ -23,20 +19,19 @@ test("ogni dominio mostra solo le proprie UPP, incluse quelle senza dati", () =>
 
 test("rifiuta stati non validi, errori senza causa e duplicati", () => {
   const parse = (checks) => parseHealthChecks({ schemaVersion: 1, checks });
-  const good = { domainId: "a", uppId: "one", status: "healthy" };
+  const good = { domainId: "a", packageId: "one", status: "healthy" };
   assert.throws(() => parse([{ ...good, status: "invalid" }]), /non valido/);
   assert.throws(() => parse([{ ...good, status: "error", reason: " " }]), /Causa mancante/);
   assert.throws(() => parse([good, good]), /duplicato/);
   assert.throws(() => parseHealthChecks({ checks: [] }), /Formato/);
 });
 
-test("i dati mock coprono tutte le UPP dei domini esistenti", () => {
-  const checks = parseHealthChecks(read("upp-health"));
+test("i dati mock coprono tutti i package installati dei domini esistenti", () => {
+  const checks = parseHealthChecks(read("package-health"));
   const { environments } = read("application-domains");
-  const { upps } = read("upp");
+  const { packages } = read("packages");
   for (const domain of environments) {
-    const active = upps.filter(instanceUpps(domain));
-    const rows = getDomainHealth(domain.id, active, checks);
+    const rows = getDomainHealth(domain.id, packages.filter((pkg) => pkg.installed), checks);
     assert.ok(rows.some(({ health }) => health.status === "healthy"), domain.id);
     assert.ok(rows.some(({ health }) => health.status === "error"), domain.id);
     assert.ok(rows.every(({ health }) => health.status !== "unknown"), domain.id);

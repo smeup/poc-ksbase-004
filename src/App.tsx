@@ -21,8 +21,11 @@ import {
   type JsonSchema,
   type JsonValue,
 } from "./schema-properties";
-import { collectUppEntities, validateUppEntities, type UppEntity } from "./upp-entities";
+import { collectPackageEntities, validatePackageEntities, type PackageEntity } from "./package-entities";
 import "./App.css";
+
+const ADMIN_BASE = "/app/administration";
+const GRAIN_TITLE = "Smeup SI";
 
 type UiCustomization = {
   theme: {
@@ -52,7 +55,7 @@ type MicroExecutor = {
   url: string;
   apis: ApiDefinition[];
   dataSources: DataSource[];
-  uppConfigurationSchemas: Record<string, JsonSchema>;
+  packageConfigurationSchemas: Record<string, JsonSchema>;
 };
 
 type DataSource = {
@@ -66,16 +69,16 @@ type ApiDefinition = {
   id: string;
   description: string;
   microExecutorId: string;
-  uppIds: string[];
+  packageIds: string[];
 };
 
-type Upp = {
+type Package = {
   id: string;
   title: string;
   description: string;
   microExecutorIds: string[];
-  entities: UppEntity[];
-  standardPlatform?: boolean;
+  installed: boolean;
+  entities: PackageEntity[];
 };
 
 type Authorization = {
@@ -83,28 +86,15 @@ type Authorization = {
   allowed: boolean;
 };
 
-type GrainInstance = {
-  id: string;
-  title: string;
-  description: string;
-  uppIds: string[];
-};
-
-type UppConfigurationValues = { [key: string]: JsonValue };
+type PackageConfigurationValues = { [key: string]: JsonValue };
 
 type ApplicationDomain = {
   id: string;
-  grainInstance: string;
   title: string;
   description: string;
-  uppConfigurations: Record<string, UppConfigurationValues>;
+  packageConfigurations: Record<string, PackageConfigurationValues>;
   authorizations: Authorization[];
   uiCustomization: UiCustomization;
-};
-
-type GrainInstanceConfiguration = {
-  schemaVersion: number;
-  grainInstances: GrainInstance[];
 };
 
 type DomainConfiguration = {
@@ -117,39 +107,30 @@ type MicroExecutorConfiguration = {
   microExecutors: MicroExecutor[];
 };
 
-type UppConfiguration = {
+type PackageConfiguration = {
   schemaVersion: number;
-  upps: Upp[];
+  packages: Package[];
 };
 
 type ApplicationConfiguration = {
-  grainInstances: GrainInstance[];
   environments: ApplicationDomain[];
   microExecutors: MicroExecutor[];
-  upps: Upp[];
-};
-
-type GrainInstanceContext = {
-  instance: GrainInstance;
-  environments: ApplicationDomain[];
-  upps: Upp[];
-  uppCatalog: Upp[];
+  packages: Package[];
 };
 
 type EnvironmentContext = {
-  instance: GrainInstance;
   environment: ApplicationDomain;
-  upps: Upp[];
+  packages: Package[];
   microExecutors: MicroExecutor[];
 };
 
 type MicroExecutorContext = {
   microExecutor: MicroExecutor;
-  upps: Upp[];
+  packages: Package[];
 };
 
-type UppContext = {
-  upp: Upp;
+type PackageContext = {
+  pkg: Package;
   microExecutors: MicroExecutor[];
 };
 
@@ -221,7 +202,7 @@ const analysisCases = [
       "Due domini con le stesse UPP A e B e database diversi per ogni dominio",
   },
   {
-    path: "shared-and-specific-upp",
+    path: "shared-and-specific-pkg",
     title: "Caso D · UPP condivise e specifiche",
     description:
       "Grain contiene domini che utilizzano alcuni programmi in comune e altri specifici, con dati distinti per dominio.",
@@ -243,96 +224,75 @@ const analysisCases = [
 ];
 
 async function loadConfiguration(): Promise<ApplicationConfiguration> {
-  const [instancesResponse, domainsResponse, microExecutorsResponse, uppsResponse] = await Promise.all([
-    fetch(`${import.meta.env.BASE_URL}data/grain-instances.json`),
+  const [domainsResponse, microExecutorsResponse, packagesResponse] = await Promise.all([
     fetch(`${import.meta.env.BASE_URL}data/application-domains.json`),
     fetch(`${import.meta.env.BASE_URL}data/micro-executors.json`),
-    fetch(`${import.meta.env.BASE_URL}data/upp.json`),
+    fetch(`${import.meta.env.BASE_URL}data/packages.json`),
   ]);
 
-  if (!instancesResponse.ok || !domainsResponse.ok || !microExecutorsResponse.ok || !uppsResponse.ok) {
-    throw new Error("Impossibile caricare la configurazione delle istanze e degli ambienti.");
+  if (!domainsResponse.ok || !microExecutorsResponse.ok || !packagesResponse.ok) {
+    throw new Error("Impossibile caricare la configurazione dei domini applicativi.");
   }
 
-  const [instanceConfiguration, domainConfiguration, microExecutorConfiguration, uppConfiguration] = await Promise.all([
-    instancesResponse.json() as Promise<GrainInstanceConfiguration>,
+  const [domainConfiguration, microExecutorConfiguration, packageConfiguration] = await Promise.all([
     domainsResponse.json() as Promise<DomainConfiguration>,
     microExecutorsResponse.json() as Promise<MicroExecutorConfiguration>,
-    uppsResponse.json() as Promise<UppConfiguration>,
+    packagesResponse.json() as Promise<PackageConfiguration>,
   ]);
 
   const microExecutorsById = new Map(
     microExecutorConfiguration.microExecutors.map((item) => [item.id, item]),
   );
-  const uppsById = new Map(uppConfiguration.upps.map((item) => [item.id, item]));
-  const instancesById = new Map<string, GrainInstance>();
+  const packagesById = new Map(packageConfiguration.packages.map((item) => [item.id, item]));
 
-  for (const instance of instanceConfiguration.grainInstances) {
-    if (typeof instance.id !== "string" || !instance.id.trim() || instancesById.has(instance.id)) {
-      throw new Error(`ID istanza Grain non valido o duplicato: ${instance.id}.`);
+  for (const pkg of packageConfiguration.packages) {
+    validatePackageEntities(pkg.id, pkg.entities);
+    if (typeof pkg.installed !== "boolean") {
+      throw new Error(`Stato di installazione non valido per il package ${pkg.id}.`);
     }
-    if (
-      !Array.isArray(instance.uppIds) ||
-      new Set(instance.uppIds).size !== instance.uppIds.length ||
-      instance.uppIds.some((id) => typeof id !== "string" || !uppsById.has(id))
-    ) {
-      throw new Error(`UPP non valide o duplicate per l'istanza Grain ${instance.id}.`);
-    }
-    instancesById.set(instance.id, instance);
-  }
-
-  for (const upp of uppConfiguration.upps) {
-    validateUppEntities(upp.id, upp.entities);
-    if (upp.standardPlatform !== undefined && typeof upp.standardPlatform !== "boolean") {
-      throw new Error(`Indicatore standard platform non valido per la UPP ${upp.id}.`);
-    }
-    for (const id of upp.microExecutorIds) {
+    for (const id of pkg.microExecutorIds) {
       const microExecutor = microExecutorsById.get(id);
       if (!microExecutor) {
-        throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
+        throw new Error(`Micro executor ${id} non trovato per il package ${pkg.id}.`);
       }
       if (
-        !microExecutor.uppConfigurationSchemas ||
-        !Object.hasOwn(microExecutor.uppConfigurationSchemas, upp.id)
+        !microExecutor.packageConfigurationSchemas ||
+        !Object.hasOwn(microExecutor.packageConfigurationSchemas, pkg.id)
       ) {
-        throw new Error(`Schema di configurazione mancante per la UPP ${upp.id} nel micro executor ${id}.`);
+        throw new Error(`Schema di configurazione mancante per il package ${pkg.id} nel micro executor ${id}.`);
       }
     }
   }
   for (const microExecutor of microExecutorConfiguration.microExecutors) {
     if (
-      !microExecutor.uppConfigurationSchemas ||
-      typeof microExecutor.uppConfigurationSchemas !== "object" ||
-      Array.isArray(microExecutor.uppConfigurationSchemas)
+      !microExecutor.packageConfigurationSchemas ||
+      typeof microExecutor.packageConfigurationSchemas !== "object" ||
+      Array.isArray(microExecutor.packageConfigurationSchemas)
     ) {
       throw new Error(`Schemi di configurazione non validi per il micro executor ${microExecutor.id}.`);
     }
-    for (const [uppId, schema] of Object.entries(microExecutor.uppConfigurationSchemas)) {
-      const upp = uppsById.get(uppId);
-      if (!upp || !upp.microExecutorIds.includes(microExecutor.id)) {
-        throw new Error(`UPP ${uppId} non valida negli schemi del micro executor ${microExecutor.id}.`);
+    for (const [packageId, schema] of Object.entries(microExecutor.packageConfigurationSchemas)) {
+      const pkg = packagesById.get(packageId);
+      if (!pkg || !pkg.microExecutorIds.includes(microExecutor.id)) {
+        throw new Error(`Package ${packageId} non valido negli schemi del micro executor ${microExecutor.id}.`);
       }
       if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-        throw new Error(`Schema non valido per la UPP ${uppId} nel micro executor ${microExecutor.id}.`);
+        throw new Error(`Schema non valido per il package ${packageId} nel micro executor ${microExecutor.id}.`);
       }
     }
     for (const api of microExecutor.apis) {
       if (api.microExecutorId !== microExecutor.id) {
         throw new Error(`Micro executor non valido per il servizio ${api.id}.`);
       }
-      for (const id of api.uppIds) {
-        const upp = uppsById.get(id);
-        if (!upp || !upp.microExecutorIds.includes(microExecutor.id)) {
-          throw new Error(`UPP ${id} non valida per il servizio ${api.id}.`);
+      for (const id of api.packageIds) {
+        const pkg = packagesById.get(id);
+        if (!pkg || !pkg.microExecutorIds.includes(microExecutor.id)) {
+          throw new Error(`Package ${id} non valido per il servizio ${api.id}.`);
         }
       }
     }
   }
   for (const environment of domainConfiguration.environments) {
-    const instance = instancesById.get(environment.grainInstance);
-    if (typeof environment.grainInstance !== "string" || !instance) {
-      throw new Error(`Istanza Grain non valida per il dominio ${environment.id}.`);
-    }
     if (
       !Array.isArray(environment.authorizations) ||
       environment.authorizations.some(
@@ -345,26 +305,28 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     ) {
       throw new Error(`Autorizzazioni non valide per il dominio ${environment.id}.`);
     }
-    const { uppConfigurations } = environment;
-    if (!uppConfigurations || typeof uppConfigurations !== "object" || Array.isArray(uppConfigurations)) {
-      throw new Error(`Configurazioni UPP non valide per il dominio ${environment.id}.`);
+    const { packageConfigurations } = environment;
+    if (!packageConfigurations || typeof packageConfigurations !== "object" || Array.isArray(packageConfigurations)) {
+      throw new Error(`Configurazioni package non valide per il dominio ${environment.id}.`);
     }
-    for (const [uppId, values] of Object.entries(uppConfigurations)) {
-      const upp = uppsById.get(uppId);
-      if (!upp || (!upp.standardPlatform && !instance.uppIds.includes(uppId))) {
-        throw new Error(`La UPP ${uppId} configurata nel dominio ${environment.id} non appartiene all'istanza ${instance.id}.`);
+    for (const [packageId, values] of Object.entries(packageConfigurations)) {
+      const pkg = packagesById.get(packageId);
+      if (!pkg) {
+        throw new Error(`Il package ${packageId} configurato nel dominio ${environment.id} non esiste.`);
+      }
+      if (!pkg.installed) {
+        throw new Error(`Il package ${packageId} configurato nel dominio ${environment.id} non è installato.`);
       }
       if (!values || typeof values !== "object" || Array.isArray(values)) {
-        throw new Error(`Configurazione non valida per la UPP ${uppId} nel dominio ${environment.id}.`);
+        throw new Error(`Configurazione non valida per il package ${packageId} nel dominio ${environment.id}.`);
       }
     }
   }
 
   return {
-    grainInstances: instanceConfiguration.grainInstances,
     environments: domainConfiguration.environments,
     microExecutors: microExecutorConfiguration.microExecutors,
-    upps: uppConfiguration.upps,
+    packages: packageConfiguration.packages,
   };
 }
 
@@ -377,7 +339,7 @@ function AppShell() {
         <div className="topbar-inner">
           <Link
             className="brand"
-            to="/"
+            to={ADMIN_BASE}
             aria-label="Grain, pagina iniziale"
           >
             <span className="brand-mark" aria-hidden="true">
@@ -398,161 +360,72 @@ function AppShell() {
   );
 }
 
-function GrainInstanceSelection() {
-  const { grainInstances, environments } = useOutletContext<ApplicationConfiguration>();
-
-  return (
-    <main className="site-main">
-      <p className="eyebrow page-eyebrow">Configurazione / istanze Grain</p>
-      <div className="page-heading">
-        <div>
-          <h1>Scegli un'istanza Grain</h1>
-          <p className="page-intro">
-            Seleziona un'istanza per consultare i suoi domini applicativi e la
-            configurazione associata.
-          </p>
-        </div>
-        <div className="page-heading-actions">
-          <div className="environment-total">
-            <span>{String(grainInstances.length).padStart(2, "0")}</span>
-            <span>istanze disponibili</span>
-          </div>
-          <Link className="analysis-button" to="/analisi">
-            Analisi
-          </Link>
-        </div>
-      </div>
-
-      <div className="section-rule">
-        <span>Istanze registrate</span>
-        <span>Seleziona per entrare</span>
-      </div>
-
-      <div className="environment-grid">
-        {grainInstances.map((instance, index) => (
-          <Link
-            className="environment-card"
-            key={instance.id}
-            to={`/grain-instances/${instance.id}`}
-          >
-            <div className="environment-card-top">
-              <span className="environment-id">{instance.id}</span>
-              <span className="environment-index">
-                {String(index + 1).padStart(2, "0")}
-              </span>
-            </div>
-            <div className="environment-card-copy">
-              <h2>{instance.title}</h2>
-              <p>{instance.description}</p>
-            </div>
-            <div className="environment-card-action">
-              <span>{environments.filter((environment) => environment.grainInstance === instance.id).length} domini</span>
-              Apri istanza <span aria-hidden="true">-&gt;</span>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </main>
-  );
-}
-
-/** UPP visibili in un'istanza: quelle associate all'istanza più le standard platform. */
-function getInstanceUpps(instance: GrainInstance, upps: Upp[]): Upp[] {
-  return upps.filter((upp) => upp.standardPlatform || instance.uppIds.includes(upp.id));
-}
-
-function GrainInstanceLayout() {
+function AdministrationLayout() {
   const configuration = useOutletContext<ApplicationConfiguration>();
-  const { instanceId } = useParams();
-  const instance = configuration.grainInstances.find((item) => item.id === instanceId);
-  const [isJsonOpen, setIsJsonOpen] = useState(false);
-
-  if (!instance) {
-    return <NotFoundPage />;
-  }
-
-  const context: GrainInstanceContext = {
-    instance,
-    environments: configuration.environments.filter(
-      (environment) => environment.grainInstance === instance.id,
-    ),
-    upps: getInstanceUpps(instance, configuration.upps),
-    uppCatalog: configuration.upps,
-  };
 
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Istanze Grain</Link>
-        <span aria-hidden="true">/</span>
-        <span>{instance.title}</span>
+        <span>{GRAIN_TITLE}</span>
       </div>
 
       <div className="environment-layout">
-        <aside className="environment-sidebar" aria-label="Menu istanza">
-          <section className="environment-summary-card" aria-labelledby="instance-title">
-            <p className="eyebrow">Istanza Grain</p>
-            <h1 id="instance-title">{instance.title}</h1>
-            <button className="json-trigger" type="button" onClick={() => setIsJsonOpen(true)}>
-              Mostra JSON
-            </button>
+        <aside className="environment-sidebar" aria-label="Menu amministrazione">
+          <section className="environment-summary-card" aria-labelledby="administration-title">
+            <p className="eyebrow">Amministrazione</p>
+            <h1 id="administration-title">{GRAIN_TITLE}</h1>
+            <Link className="analysis-button" to={`${ADMIN_BASE}/analisi`}>
+              Analisi
+            </Link>
           </section>
           <div className="environment-sidebar-menu">
-            <p className="sidebar-caption">Menu istanza</p>
+            <p className="sidebar-caption">Menu</p>
             <nav className="sidebar-nav">
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="domini" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Domini applicativi
               </NavLink>
-              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="upp">
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="packages">
                 <span className="sidebar-link-marker" aria-hidden="true" />
-                UPP
+                Packages
               </NavLink>
             </nav>
           </div>
         </aside>
 
         <div className="environment-outlet">
-          <Outlet context={context} />
+          <Outlet context={configuration} />
         </div>
       </div>
-      {isJsonOpen && (
-        <JsonDialog
-          title={instance.title}
-          id={instance.id}
-          value={instance}
-          onClose={() => setIsJsonOpen(false)}
-        />
-      )}
     </main>
   );
 }
 
-function GrainInstanceDomains() {
-  const { instance, environments } = useOutletContext<GrainInstanceContext>();
+function AdministrationDomains() {
+  const { environments } = useOutletContext<ApplicationConfiguration>();
 
   return (
-    <section aria-labelledby="instance-domains-heading">
+    <section aria-labelledby="domains-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Istanza Grain · {instance.title}</p>
-          <h2 id="instance-domains-heading">Domini applicativi</h2>
+          <p className="eyebrow">{GRAIN_TITLE}</p>
+          <h2 id="domains-heading">Domini applicativi</h2>
         </div>
         <span className="detail-format">{environments.length} domini</span>
       </div>
       <p className="page-intro api-intro">
-        Domini applicativi di questa istanza. Ogni dominio vede tutte le UPP
-        dell'istanza e le configura in base alle proprie esigenze.
+        Domini applicativi di {GRAIN_TITLE}. Ogni dominio vede tutti i package installati
+        e li configura in base alle proprie esigenze.
       </p>
       {environments.length === 0 ? (
-        <p className="page-intro">Nessun dominio associato a questa istanza.</p>
+        <p className="page-intro">Nessun dominio applicativo configurato.</p>
       ) : (
         <div className="micro-executor-list">
           {environments.map((environment) => (
             <Link
               className="micro-executor-card"
               key={environment.id}
-              to={`/applicative-domain/${environment.id}`}
+              to={`${ADMIN_BASE}/applicative-domain/${environment.id}`}
             >
               <div className="micro-executor-card-top">
                 <span className="environment-id">{environment.id}</span>
@@ -575,7 +448,7 @@ function AnalysisLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Istanze Grain</Link>
+        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
         <span>Analisi</span>
       </div>
@@ -757,8 +630,8 @@ function AnalysisConceptsPage() {
         considerato.
       </p>
       <div className="analysis-facts">
-        <section className="analysis-fact" aria-labelledby="concept-upp">
-          <h2 id="concept-upp">UPP · Insieme di funzionalità</h2>
+        <section className="analysis-fact" aria-labelledby="concept-pkg">
+          <h2 id="concept-pkg">UPP · Insieme di funzionalità</h2>
           <p>
             L'UPP definisce un gruppo di funzionalità che permettono di
             risolvere un problema di business. Queste funzionalità sono offerte
@@ -791,7 +664,7 @@ function AnalysisConceptsPage() {
       </div>
       <img
         className="analysis-image"
-        src={`${import.meta.env.BASE_URL}/img/er-upp.png`}
+        src={`${import.meta.env.BASE_URL}/img/er-pkg.png`}
       />
       <p className="analysis-note">
         Se una UPP è condivisa tra domini, questi usano le stesse istanze dei
@@ -804,7 +677,7 @@ function AnalysisConceptsPage() {
         className="analysis-step-navigation"
         aria-label="Navigazione nel percorso di analisi"
       >
-        <Link to={`/analisi/${analysisCases[0].path}`}>
+        <Link to={`${ADMIN_BASE}/analisi/${analysisCases[0].path}`}>
           <span>Inizia il percorso</span>
           {analysisCases[0].title}
         </Link>
@@ -855,7 +728,7 @@ function AnalysisCasePage({
           {analysisCase.nextQuestion}
         </p>
         {nextCase && (
-          <Link to={`/analisi/${nextCase.path}`}>
+          <Link to={`${ADMIN_BASE}/analisi/${nextCase.path}`}>
             Prosegui: {nextCase.title} <span aria-hidden="true">-&gt;</span>
           </Link>
         )}
@@ -905,7 +778,7 @@ function AnalysisCasePage({
           {previousCase ? previousCase.title : "Concetti fondamentali"}
         </Link>
         {nextCase && (
-          <Link to={`/analisi/${nextCase.path}`}>
+          <Link to={`${ADMIN_BASE}/analisi/${nextCase.path}`}>
             <span>Passo successivo</span>
             {nextCase.title}
           </Link>
@@ -929,7 +802,7 @@ function AnalysisCasePage({
               {analysisCases.map((item) => (
                 <tr key={item.path}>
                   <th scope="row">
-                    <Link to={`/analisi/${item.path}`}>{item.title}</Link>
+                    <Link to={`${ADMIN_BASE}/analisi/${item.path}`}>{item.title}</Link>
                   </th>
                   <td>{item.comparisonPrograms}</td>
                   <td>{item.comparisonData}</td>
@@ -954,26 +827,16 @@ function EnvironmentLayout() {
   if (!environment) {
     return <NotFoundPage />;
   }
-  const instance = configuration.grainInstances.find(
-    (item) => item.id === environment.grainInstance,
-  );
-  if (!instance) {
-    throw new Error(`Istanza Grain non trovata per il dominio ${environment.id}.`);
-  }
-
   const environmentContext: EnvironmentContext = {
-    instance,
     environment,
-    upps: getInstanceUpps(instance, configuration.upps),
+    packages: configuration.packages.filter((pkg) => pkg.installed),
     microExecutors: configuration.microExecutors,
   };
 
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Istanze Grain</Link>
-        <span aria-hidden="true">/</span>
-        <Link to={`/grain-instances/${instance.id}`}>{instance.title}</Link>
+        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
         <span>{environment.id}</span>
       </div>
@@ -1100,13 +963,13 @@ function MicroExecutorLayout() {
   }
   const context: MicroExecutorContext = {
     microExecutor,
-    upps: configuration.upps.filter((upp) => upp.microExecutorIds.includes(microExecutor.id)),
+    packages: configuration.packages.filter((pkg) => pkg.microExecutorIds.includes(microExecutor.id)),
   };
 
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Istanze Grain</Link>
+        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
         <span>{microExecutor.id}</span>
       </div>
@@ -1261,12 +1124,6 @@ function EnvironmentDetail() {
           <dd className="detail-value detail-id">{environment.id}</dd>
         </div>
         <div className="detail-row">
-          <dt>grainInstance</dt>
-          <dd className="detail-value detail-id">
-            <Link to={`/grain-instances/${environment.grainInstance}`}>{environment.grainInstance}</Link>
-          </dd>
-        </div>
-        <div className="detail-row">
           <dt>Title</dt>
           <dd className="detail-value">{environment.title}</dd>
         </div>
@@ -1282,7 +1139,7 @@ function EnvironmentDetail() {
 }
 
 async function loadHealthChecks({ request }: LoaderFunctionArgs) {
-  const response = await fetch(`${import.meta.env.BASE_URL}data/upp-health.json`, {
+  const response = await fetch(`${import.meta.env.BASE_URL}data/package-health.json`, {
     signal: request.signal,
   });
   if (!response.ok) {
@@ -1379,13 +1236,9 @@ function EnvironmentCapacity() {
 }
 
 function EnvironmentHealthCheck() {
-  const { environment, upps } = useOutletContext<EnvironmentContext>();
+  const { environment, packages } = useOutletContext<EnvironmentContext>();
   const checks = useLoaderData<typeof loadHealthChecks>();
-  const orderedUpps = [
-    ...upps.filter((upp) => !upp.standardPlatform),
-    ...upps.filter((upp) => upp.standardPlatform),
-  ];
-  const rows = getDomainHealth(environment.id, orderedUpps, checks);
+  const rows = getDomainHealth(environment.id, packages, checks);
   const healthyCount = rows.filter(({ health }) => health.status === "healthy").length;
   const errorCount = rows.filter(({ health }) => health.status === "error").length;
   const unknownCount = rows.filter(({ health }) => health.status === "unknown").length;
@@ -1400,7 +1253,7 @@ function EnvironmentHealthCheck() {
         <span className="detail-format">Dati mock</span>
       </div>
       <p className="page-intro api-intro">
-        Stati e cause di errore simulati per le UPP del dominio, incluse quelle standard.
+        Stati e cause di errore simulati per i package installati nel dominio.
         Non viene effettuato alcun controllo reale.
       </p>
       <div className="health-summary" aria-label="Riepilogo health check">
@@ -1409,26 +1262,25 @@ function EnvironmentHealthCheck() {
         <div><strong>{unknownCount}</strong><span>Non disponibili</span></div>
       </div>
       {rows.length === 0 ? (
-        <p className="page-intro">Nessuna UPP associata al dominio.</p>
+        <p className="page-intro">Nessun package associato al dominio.</p>
       ) : (
-        <ul className="health-list" aria-label="Stato delle UPP">
-          {rows.map(({ upp, health }) => (
-            <li className="health-card" key={upp.id}>
+        <ul className="health-list" aria-label="Stato dei package">
+          {rows.map(({ pkg, health }) => (
+            <li className="health-card" key={pkg.id}>
               <div className="health-card-heading">
                 <div>
-                  <span className="environment-id">{upp.id}</span>
-                  <h3><Link to={`/upp/${upp.id}`}>{upp.title}</Link></h3>
+                  <span className="environment-id">{pkg.id}</span>
+                  <h3><Link to={`${ADMIN_BASE}/packages/${pkg.id}`}>{pkg.title}</Link></h3>
                 </div>
                 <span className={`health-status is-${health.status}`}>
                   {health.status === "healthy" ? "Viva" : health.status === "error" ? "In errore" : "Non disponibile"}
                 </span>
               </div>
-              {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
               {health.status === "error" && (
                 <p className="health-reason"><strong>Causa:</strong> {health.reason}</p>
               )}
               {health.status === "unknown" && (
-                <p className="health-reason">Nessun dato mock disponibile per questa UPP nel dominio.</p>
+                <p className="health-reason">Nessun dato mock disponibile per questo package nel dominio.</p>
               )}
             </li>
           ))}
@@ -1487,16 +1339,16 @@ function EnvironmentAuthorizations() {
                 <td><code>*</code></td>
               </tr>
               <tr>
-                <th scope="row">UPP</th>
-                <td><code>{"<id_upp>"}</code></td>
+                <th scope="row">Package</th>
+                <td><code>{"<id_package>"}</code></td>
               </tr>
               <tr>
                 <th scope="row">Servizio</th>
-                <td><code>{"<id_upp>.<id_servizio>"}</code></td>
+                <td><code>{"<id_package>.<id_servizio>"}</code></td>
               </tr>
               <tr>
                 <th scope="row">Funzione o metodo</th>
-                <td><code>{"<id_upp>.<id_servizio>-<funzione-metodo>"}</code></td>
+                <td><code>{"<id_package>.<id_servizio>-<funzione-metodo>"}</code></td>
               </tr>
             </tbody>
           </table>
@@ -1515,28 +1367,28 @@ function EnvironmentAuthorizations() {
 
 const jsonSchemaDialect = "https://json-schema.org/draft/2020-12/schema";
 
-function getExecutorUppSchema(microExecutor: MicroExecutor, uppId: string): JsonSchema {
-  const schema = microExecutor.uppConfigurationSchemas[uppId];
+function getExecutorPackageSchema(microExecutor: MicroExecutor, packageId: string): JsonSchema {
+  const schema = microExecutor.packageConfigurationSchemas[packageId];
   if (!schema) {
-    throw new Error(`Schema mancante per la UPP ${uppId} nel micro executor ${microExecutor.id}.`);
+    throw new Error(`Schema mancante per il package ${packageId} nel micro executor ${microExecutor.id}.`);
   }
   return schema;
 }
 
-function getUppSchema(upp: Upp, microExecutors: MicroExecutor[]): JsonSchema | null {
-  if (upp.microExecutorIds.length === 0) {
+function getPackageSchema(pkg: Package, microExecutors: MicroExecutor[]): JsonSchema | null {
+  if (pkg.microExecutorIds.length === 0) {
     return null;
   }
-  const fragments = upp.microExecutorIds.map((id) => {
+  const fragments = pkg.microExecutorIds.map((id) => {
     const microExecutor = microExecutors.find((item) => item.id === id);
     if (!microExecutor) {
-      throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
+      throw new Error(`Micro executor ${id} non trovato per il package ${pkg.id}.`);
     }
-    return getExecutorUppSchema(microExecutor, upp.id);
+    return getExecutorPackageSchema(microExecutor, pkg.id);
   });
   return {
     $schema: jsonSchemaDialect,
-    title: upp.title,
+    title: pkg.title,
     allOf: fragments,
   };
 }
@@ -1545,25 +1397,24 @@ function ConfigurationSchemas({
   entries,
   showValues = false,
 }: {
-  entries: { upp: Upp; schema: JsonSchema | null; configuration?: UppConfigurationValues }[];
+  entries: { pkg: Package; schema: JsonSchema | null; configuration?: PackageConfigurationValues }[];
   showValues?: boolean;
 }) {
   if (entries.length === 0) {
-    return <p className="page-intro">Nessuna UPP associata.</p>;
+    return <p className="page-intro">Nessun package associato.</p>;
   }
   return (
     <div className="configuration-schema-list">
-      {entries.map(({ upp, schema, configuration }) => (
-        <section className="configuration-schema" key={upp.id} aria-labelledby={`schema-${upp.id}`}>
+      {entries.map(({ pkg, schema, configuration }) => (
+        <section className="configuration-schema" key={pkg.id} aria-labelledby={`schema-${pkg.id}`}>
           <div className="configuration-schema-heading">
             <div>
-              <span className="environment-id">{upp.id}</span>
-              <h3 id={`schema-${upp.id}`}>{upp.title}</h3>
+              <span className="environment-id">{pkg.id}</span>
+              <h3 id={`schema-${pkg.id}`}>{pkg.title}</h3>
             </div>
             <div className="configuration-schema-tags">
-              {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
               {showValues && (
-                <span className={`upp-status${configuration ? " is-active" : ""}`}>
+                <span className={`config-status${configuration ? " is-active" : ""}`}>
                   {configuration ? "Configurata" : "Non configurata"}
                 </span>
               )}
@@ -1572,7 +1423,7 @@ function ConfigurationSchemas({
           {schema ? (
             <SchemaProperties
               schema={schema}
-              title={upp.title}
+              title={pkg.title}
               values={showValues ? { configuration } : undefined}
             />
           ) : (
@@ -1601,7 +1452,7 @@ function SchemaProperties({
 }: {
   schema: JsonSchema;
   title: string;
-  values?: { configuration: UppConfigurationValues | undefined };
+  values?: { configuration: PackageConfigurationValues | undefined };
 }) {
   const { properties, unrepresented } = getSchemaProperties(schema);
 
@@ -1647,11 +1498,7 @@ function SchemaProperties({
 }
 
 function EnvironmentConfigurationPage() {
-  const { environment, upps, microExecutors } = useOutletContext<EnvironmentContext>();
-  const orderedUpps = [
-    ...upps.filter((upp) => !upp.standardPlatform),
-    ...upps.filter((upp) => upp.standardPlatform),
-  ];
+  const { environment, packages, microExecutors } = useOutletContext<EnvironmentContext>();
 
   return (
     <section aria-labelledby="environment-configuration-heading">
@@ -1660,45 +1507,45 @@ function EnvironmentConfigurationPage() {
           <p className="eyebrow">Dominio applicativo · {environment.title}</p>
           <h2 id="environment-configuration-heading">Configurazione</h2>
         </div>
-        <span className="detail-format">{upps.length} UPP</span>
+        <span className="detail-format">{packages.length} package</span>
       </div>
       <p className="page-intro api-intro">
-        Il dominio vede tutte le UPP dell'istanza, incluse quelle standard, e
-        le configura in base alle proprie esigenze. Per ogni proprietà dello
+        Il dominio vede tutti i package installati
+        e li configura in base alle proprie esigenze. Per ogni proprietà dello
         schema è indicato il valore impostato dal dominio. I valori sono esempi
         mock in sola lettura.
       </p>
       <ConfigurationSchemas
         showValues
-        entries={orderedUpps.map((upp) => ({
-          upp,
-          schema: getUppSchema(upp, microExecutors),
-          configuration: environment.uppConfigurations[upp.id],
+        entries={packages.map((pkg) => ({
+          pkg,
+          schema: getPackageSchema(pkg, microExecutors),
+          configuration: environment.packageConfigurations[pkg.id],
         }))}
       />
     </section>
   );
 }
 
-function UppConfigurationPage() {
-  const { upp, microExecutors } = useOutletContext<UppContext>();
+function PackageConfigurationPage() {
+  const { pkg, microExecutors } = useOutletContext<PackageContext>();
 
   return (
-    <section aria-labelledby="upp-configuration-heading">
+    <section aria-labelledby="package-configuration-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">UPP · {upp.title}</p>
-          <h2 id="upp-configuration-heading">Configurazione</h2>
+          <p className="eyebrow">Package · {pkg.title}</p>
+          <h2 id="package-configuration-heading">Configurazione</h2>
         </div>
       </div>
       <p className="page-intro api-intro">Schema di configurazione mock in sola lettura.</p>
-      <ConfigurationSchemas entries={[{ upp, schema: getUppSchema(upp, microExecutors) }]} />
+      <ConfigurationSchemas entries={[{ pkg, schema: getPackageSchema(pkg, microExecutors) }]} />
     </section>
   );
 }
 
 function MicroExecutorConfigurationPage() {
-  const { microExecutor, upps } = useOutletContext<MicroExecutorContext>();
+  const { microExecutor, packages } = useOutletContext<MicroExecutorContext>();
 
   return (
     <section aria-labelledby="executor-configuration-heading">
@@ -1707,21 +1554,21 @@ function MicroExecutorConfigurationPage() {
           <p className="eyebrow">Micro executor · {microExecutor.title}</p>
           <h2 id="executor-configuration-heading">Configurazione</h2>
         </div>
-        <span className="detail-format">{upps.length} UPP</span>
+        <span className="detail-format">{packages.length} package</span>
       </div>
       <p className="page-intro api-intro">
-        Schemi mock in sola lettura definiti da questo micro executor per ogni UPP.
+        Schemi mock in sola lettura definiti da questo micro executor per ogni package.
       </p>
-      <ConfigurationSchemas entries={upps.map((upp) => ({
-        upp,
-        schema: { $schema: jsonSchemaDialect, ...getExecutorUppSchema(microExecutor, upp.id) },
+      <ConfigurationSchemas entries={packages.map((pkg) => ({
+        pkg,
+        schema: { $schema: jsonSchemaDialect, ...getExecutorPackageSchema(microExecutor, pkg.id) },
       }))} />
     </section>
   );
 }
 
-function EntitiesTable({ upps, linkToUpp = false }: { upps: Upp[]; linkToUpp?: boolean }) {
-  const rows = collectUppEntities(upps);
+function EntitiesTable({ packages, linkToPackage = false }: { packages: Package[]; linkToPackage?: boolean }) {
+  const rows = collectPackageEntities(packages);
 
   if (rows.length === 0) {
     return <p className="page-intro">Nessuna entità definita.</p>;
@@ -1734,19 +1581,19 @@ function EntitiesTable({ upps, linkToUpp = false }: { upps: Upp[]; linkToUpp?: b
           <tr>
             <th scope="col">ID</th>
             <th scope="col">Descrizione</th>
-            <th scope="col">UPP di riferimento</th>
+            <th scope="col">Package di riferimento</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ entity, upp }) => (
-            <tr key={JSON.stringify([upp.id, entity.id])}>
+          {rows.map(({ entity, pkg }) => (
+            <tr key={JSON.stringify([pkg.id, entity.id])}>
               <th scope="row"><code>{entity.id}</code></th>
               <td>{entity.description}</td>
               <td>
-                {linkToUpp ? (
-                  <Link to={`/upp/${upp.id}/entita`}>{upp.title}</Link>
-                ) : upp.title}
-                <span className="entities-upp-id">{upp.id}</span>
+                {linkToPackage ? (
+                  <Link to={`${ADMIN_BASE}/packages/${pkg.id}/entita`}>{pkg.title}</Link>
+                ) : pkg.title}
+                <span className="entities-package-id">{pkg.id}</span>
               </td>
             </tr>
           ))}
@@ -1757,12 +1604,8 @@ function EntitiesTable({ upps, linkToUpp = false }: { upps: Upp[]; linkToUpp?: b
 }
 
 function EnvironmentEntities() {
-  const { environment, upps } = useOutletContext<EnvironmentContext>();
-  const orderedUpps = [
-    ...upps.filter((upp) => !upp.standardPlatform),
-    ...upps.filter((upp) => upp.standardPlatform),
-  ];
-  const count = collectUppEntities(orderedUpps).length;
+  const { environment, packages } = useOutletContext<EnvironmentContext>();
+  const count = collectPackageEntities(packages).length;
 
   return (
     <section aria-labelledby="environment-entities-heading">
@@ -1774,200 +1617,168 @@ function EnvironmentEntities() {
         <span className="detail-format">{count} entità</span>
       </div>
       <p className="page-intro api-intro">
-        Entità delle UPP associate al dominio, incluse quelle standard.
+        Entità dei package installati, visibili dal dominio.
         I dati sono esempi mock in sola lettura.
       </p>
-      <EntitiesTable upps={orderedUpps} linkToUpp />
+      <EntitiesTable packages={packages} linkToPackage />
     </section>
   );
 }
 
-function UppEntities() {
-  const { upp } = useOutletContext<UppContext>();
+function PackageEntities() {
+  const { pkg } = useOutletContext<PackageContext>();
 
   return (
-    <section aria-labelledby="upp-entities-heading">
+    <section aria-labelledby="package-entities-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">UPP · {upp.title}</p>
-          <h2 id="upp-entities-heading">Entità</h2>
+          <p className="eyebrow">Package · {pkg.title}</p>
+          <h2 id="package-entities-heading">Entità</h2>
         </div>
-        <span className="detail-format">{upp.entities.length} entità</span>
+        <span className="detail-format">{pkg.entities.length} entità</span>
       </div>
       <p className="page-intro api-intro">
-        Entità di cui è responsabile questa UPP. I dati sono esempi mock in sola lettura.
+        Entità di cui è responsabile questo package. I dati sono esempi mock in sola lettura.
       </p>
-      <EntitiesTable upps={[upp]} />
+      <EntitiesTable packages={[pkg]} />
     </section>
   );
 }
 
-function InstanceUpps() {
-  const { instance, upps } = useOutletContext<GrainInstanceContext>();
+function AdministrationPackages() {
+  const { packages } = useOutletContext<ApplicationConfiguration>();
+  const installedPackages = packages.filter((pkg) => pkg.installed);
 
   return (
-    <section aria-labelledby="upp-list-heading">
+    <section aria-labelledby="package-list-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Istanza Grain · {instance.title}</p>
-          <h2 id="upp-list-heading">UPP</h2>
+          <p className="eyebrow">{GRAIN_TITLE}</p>
+          <h2 id="package-list-heading">Packages</h2>
         </div>
-        <div className="upp-heading-actions">
-          <span className="detail-format">{upps.length} UPP</span>
-          <Link className="analysis-button" to="store">UPP Store</Link>
+        <div className="detail-heading-actions">
+          <span className="detail-format">{installedPackages.length} installati</span>
+          <Link className="analysis-button" to="store">Package Store</Link>
         </div>
       </div>
       <p className="page-intro api-intro">
-        UPP dell'istanza {instance.title}, comprese quelle standard ereditate
-        dalla piattaforma. Sono disponibili in tutti i domini dell'istanza, che
-        le configurano in base alle proprie esigenze.
+        Package installati su {GRAIN_TITLE}. Ogni package raggruppa uno o più
+        micro executor ed è disponibile in tutti i domini applicativi, che lo
+        configurano in base alle proprie esigenze.
       </p>
-      {upps.length === 0 ? (
-        <p className="page-intro">Nessuna UPP associata.</p>
+      {installedPackages.length === 0 ? (
+        <p className="page-intro">Nessun package installato.</p>
       ) : (
-        <UppGroups upps={upps} specificLabel="UPP specifiche" />
+        <div className="micro-executor-list">
+          {installedPackages.map((pkg) => (
+            <PackageCard key={pkg.id} pkg={pkg} />
+          ))}
+        </div>
       )}
     </section>
   );
 }
 
-function UppGroups({
-  upps,
-  specificLabel,
-  activeUppIds,
-}: {
-  upps: Upp[];
-  specificLabel: string;
-  activeUppIds?: Set<string>;
-}) {
-  const specificUpps = upps.filter((upp) => !upp.standardPlatform);
-  const standardUpps = upps.filter((upp) => upp.standardPlatform);
+function PackageStore() {
+  const { packages } = useOutletContext<ApplicationConfiguration>();
 
   return (
-    <>
-      <section className="upp-group" aria-labelledby="specific-upps-heading">
-        <h3 id="specific-upps-heading">{specificLabel}</h3>
-        {specificUpps.length === 0 ? (
-          <p className="page-intro">Nessuna UPP in questa sezione.</p>
-        ) : (
-          <div className="micro-executor-list">
-            {specificUpps.map((upp) => (
-              <UppCard key={upp.id} upp={upp} active={activeUppIds?.has(upp.id)} />
-            ))}
-          </div>
-        )}
-      </section>
-      {standardUpps.length > 0 && (
-        <details className="upp-standard-group">
-          <summary>
-            <span>UPP standard platform</span>
-            <span className="detail-format">{standardUpps.length} UPP</span>
-          </summary>
-          <div className="micro-executor-list">
-            {standardUpps.map((upp) => (
-              <UppCard key={upp.id} upp={upp} active={activeUppIds?.has(upp.id)} />
-            ))}
-          </div>
-        </details>
+    <section aria-labelledby="package-store-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">{GRAIN_TITLE}</p>
+          <h2 id="package-store-heading">Package Store</h2>
+        </div>
+        <Link className="message-link" to=".." relative="path">
+          Torna ai packages
+        </Link>
+      </div>
+      <p className="page-intro api-intro">
+        Catalogo dei package installabili su {GRAIN_TITLE}. Lo stato indica
+        quelli già installati; la vista è in sola lettura.
+      </p>
+      {packages.length === 0 ? (
+        <p className="page-intro">Nessun package presente nel catalogo.</p>
+      ) : (
+        <div className="micro-executor-list">
+          {packages.map((pkg) => (
+            <PackageCard key={pkg.id} pkg={pkg} showStatus />
+          ))}
+        </div>
       )}
-    </>
+    </section>
   );
 }
 
-function UppCard({ upp, active }: { upp: Upp; active?: boolean }) {
+function InstallationStatus({ installed }: { installed: boolean }) {
   return (
-    <Link className="micro-executor-card" to={`/upp/${upp.id}`}>
+    <span className={`config-status${installed ? " is-active" : ""}`}>
+      {installed ? "Installato" : "Non installato"}
+    </span>
+  );
+}
+
+function PackageCard({ pkg, showStatus = false }: { pkg: Package; showStatus?: boolean }) {
+  return (
+    <Link className="micro-executor-card" to={`${ADMIN_BASE}/packages/${pkg.id}`}>
       <div className="micro-executor-card-top">
-        <span className="environment-id">{upp.id}</span>
-        {active === undefined ? (
-          <span className="micro-executor-api-count">
-            {upp.microExecutorIds.length} micro executor
-          </span>
+        <span className="environment-id">{pkg.id}</span>
+        {showStatus ? (
+          <InstallationStatus installed={pkg.installed} />
         ) : (
-          <span className={`upp-status${active ? " is-active" : ""}`}>
-            {active ? "Attiva" : "Non attiva"}
+          <span className="micro-executor-api-count">
+            {pkg.microExecutorIds.length} micro executor
           </span>
         )}
       </div>
-      {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
-      <h3>{upp.title}</h3>
-      <p>{upp.description}</p>
+      <h3>{pkg.title}</h3>
+      <p>{pkg.description}</p>
       <div className="micro-executor-card-action">
-        <span>UPP</span>
+        <span>Package</span>
         <span>Apri <span aria-hidden="true">-&gt;</span></span>
       </div>
     </Link>
   );
 }
 
-function InstanceUppStore() {
-  const { instance, upps, uppCatalog } = useOutletContext<GrainInstanceContext>();
-  const activeUppIds = new Set(upps.map((upp) => upp.id));
-
-  return (
-    <section aria-labelledby="upp-store-heading">
-      <div className="detail-heading">
-        <div>
-          <p className="eyebrow">Istanza Grain · {instance.title}</p>
-          <h2 id="upp-store-heading">UPP Store</h2>
-        </div>
-        <Link className="message-link" to=".." relative="path">
-          Torna alle UPP
-        </Link>
-      </div>
-      <p className="page-intro api-intro">
-        Catalogo completo delle UPP. Lo stato indica se sono associate
-        all'istanza {instance.title}, anche tramite ereditarietà dalla
-        piattaforma; questa vista è in sola lettura.
-      </p>
-      {uppCatalog.length === 0 ? (
-        <p className="page-intro">Nessuna UPP presente nel catalogo.</p>
-      ) : (
-        <UppGroups upps={uppCatalog} specificLabel="Altre UPP" activeUppIds={activeUppIds} />
-      )}
-    </section>
-  );
-}
-
-function UppLayout() {
+function PackageLayout() {
   const configuration = useOutletContext<ApplicationConfiguration>();
-  const { uppId } = useParams();
-  const upp = configuration.upps.find((item) => item.id === uppId);
+  const { packageId } = useParams();
+  const pkg = configuration.packages.find((item) => item.id === packageId);
   const [isJsonOpen, setIsJsonOpen] = useState(false);
 
-  if (!upp) {
+  if (!pkg) {
     return <NotFoundPage />;
   }
 
-  const microExecutors = upp.microExecutorIds.map((id) => {
+  const microExecutors = pkg.microExecutorIds.map((id) => {
     const microExecutor = configuration.microExecutors.find((item) => item.id === id);
     if (!microExecutor) {
-      throw new Error(`Micro executor ${id} non trovato per la UPP ${upp.id}.`);
+      throw new Error(`Micro executor ${id} non trovato per il package ${pkg.id}.`);
     }
     return microExecutor;
   });
-  const context: UppContext = { upp, microExecutors };
+  const context: PackageContext = { pkg, microExecutors };
 
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to="/">Istanze Grain</Link>
+        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
-        <span>{upp.id}</span>
+        <span>{pkg.id}</span>
       </div>
       <div className="environment-layout">
-        <aside className="environment-sidebar" aria-label="Menu UPP">
-          <section className="environment-summary-card" aria-labelledby="upp-title">
-            <p className="eyebrow">UPP</p>
-            <h1 id="upp-title">{upp.title}</h1>
-            {upp.standardPlatform && <span className="platform-tag">standard platform</span>}
+        <aside className="environment-sidebar" aria-label="Menu package">
+          <section className="environment-summary-card" aria-labelledby="package-title">
+            <p className="eyebrow">Package</p>
+            <h1 id="package-title">{pkg.title}</h1>
             <button className="json-trigger" type="button" onClick={() => setIsJsonOpen(true)}>
               Mostra JSON
             </button>
           </section>
           <div>
-            <p className="sidebar-caption">Menu UPP</p>
-            <nav className="sidebar-nav" aria-label="Viste UPP">
+            <p className="sidebar-caption">Menu package</p>
+            <nav className="sidebar-nav" aria-label="Viste package">
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="dettaglio" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Dettaglio
@@ -1996,58 +1807,62 @@ function UppLayout() {
         </div>
       </div>
       {isJsonOpen && (
-        <JsonDialog title={upp.title} id={upp.id} value={upp} onClose={() => setIsJsonOpen(false)} />
+        <JsonDialog title={pkg.title} id={pkg.id} value={pkg} onClose={() => setIsJsonOpen(false)} />
       )}
     </main>
   );
 }
 
-function UppDetail() {
-  const { upp } = useOutletContext<UppContext>();
+function PackageDetail() {
+  const { pkg } = useOutletContext<PackageContext>();
 
   return (
-    <section className="detail-view" aria-labelledby="upp-detail-heading">
+    <section className="detail-view" aria-labelledby="package-detail-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Anagrafica UPP</p>
-          <h2 id="upp-detail-heading">Dettaglio</h2>
+          <p className="eyebrow">Anagrafica package</p>
+          <h2 id="package-detail-heading">Dettaglio</h2>
         </div>
       </div>
       <dl className="detail-list">
         <div className="detail-row">
           <dt>ID</dt>
-          <dd className="detail-value detail-id">{upp.id}</dd>
+          <dd className="detail-value detail-id">{pkg.id}</dd>
         </div>
         <div className="detail-row">
           <dt>Titolo</dt>
-          <dd className="detail-value">{upp.title}</dd>
+          <dd className="detail-value">{pkg.title}</dd>
         </div>
         <div className="detail-row">
           <dt>Obiettivo</dt>
-          <dd className="detail-value detail-description">{upp.description}</dd>
+          <dd className="detail-value detail-description">{pkg.description}</dd>
+        </div>
+        <div className="detail-row">
+          <dt>Stato</dt>
+          <dd className="detail-value"><InstallationStatus installed={pkg.installed} /></dd>
         </div>
       </dl>
     </section>
   );
 }
 
-function UppServices() {
-  const { upp, microExecutors } = useOutletContext<UppContext>();
+function PackageServices() {
+  const { pkg, microExecutors } = useOutletContext<PackageContext>();
   const apis = microExecutors.flatMap((microExecutor) =>
-    microExecutor.apis.filter((api) => api.uppIds.includes(upp.id)),
+    microExecutor.apis.filter((api) => api.packageIds.includes(pkg.id)),
   );
 
   return (
-    <section aria-labelledby="upp-services-heading">
+    <section aria-labelledby="package-services-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">UPP · {upp.title}</p>
-          <h2 id="upp-services-heading">Servizi</h2>
+          <p className="eyebrow">Package · {pkg.title}</p>
+          <h2 id="package-services-heading">Servizi</h2>
         </div>
         <span className="detail-format">{apis.length} servizi</span>
       </div>
       <p className="page-intro api-intro">
-        Servizi esplicitamente associati a questa UPP nei micro executor.
+        Servizi esplicitamente associati a questo package nei micro executor.
       </p>
       {apis.length === 0 ? (
         <p className="page-intro">Nessun servizio associato.</p>
@@ -2066,7 +1881,7 @@ function UppServices() {
               <div>
                 <dt>Micro executor</dt>
                 <dd className="detail-value api-executor-id">
-                  <Link className="data-source-owner" to={`/micro-executors/${api.microExecutorId}/api`}>
+                  <Link className="data-source-owner" to={`${ADMIN_BASE}/micro-executors/${api.microExecutorId}/api`}>
                     {api.microExecutorId}
                   </Link>
                 </dd>
@@ -2079,20 +1894,20 @@ function UppServices() {
   );
 }
 
-function UppMicroExecutors() {
-  const { upp, microExecutors } = useOutletContext<UppContext>();
+function PackageMicroExecutors() {
+  const { pkg, microExecutors } = useOutletContext<PackageContext>();
 
   return (
-    <section aria-labelledby="upp-executors-heading">
+    <section aria-labelledby="package-executors-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">UPP · {upp.title}</p>
-          <h2 id="upp-executors-heading">Micro executors</h2>
+          <p className="eyebrow">Package · {pkg.title}</p>
+          <h2 id="package-executors-heading">Micro executors</h2>
         </div>
         <span className="detail-format">{microExecutors.length} micro executor</span>
       </div>
       <p className="page-intro api-intro">
-        Micro executor associati a questa UPP.
+        Micro executor associati a questo package.
       </p>
       {microExecutors.length === 0 ? (
         <p className="page-intro">Nessun micro executor associato.</p>
@@ -2102,7 +1917,7 @@ function UppMicroExecutors() {
             <Link
               className="micro-executor-card"
               key={microExecutor.id}
-              to={`/micro-executors/${microExecutor.id}`}
+              to={`${ADMIN_BASE}/micro-executors/${microExecutor.id}`}
             >
               <div className="micro-executor-card-top">
                 <span className="environment-id">{microExecutor.id}</span>
@@ -2243,7 +2058,7 @@ function DataSourcesList({
             <dd className="detail-value">
               <Link
                 className="data-source-owner"
-                to={`/micro-executors/${microExecutor.id}/data-sources`}
+                to={`${ADMIN_BASE}/micro-executors/${microExecutor.id}/data-sources`}
               >
                 {microExecutor.title}
               </Link>
@@ -2377,7 +2192,7 @@ function UiPersonalizationPage() {
 function ConfigurationLoading() {
   return (
     <main className="site-main message-page" aria-live="polite">
-      <p className="eyebrow">Configurazione / istanze e ambienti</p>
+      <p className="eyebrow">Configurazione / domini applicativi</p>
       <h1>Caricamento dati</h1>
     </main>
   );
@@ -2391,9 +2206,19 @@ function NotFoundPage() {
       <p className="page-intro">
         La risorsa richiesta non &egrave; presente nella configurazione.
       </p>
-      <Link className="message-link" to="/">
-        Torna alle istanze
+      <Link className="message-link" to={ADMIN_BASE}>
+        Torna all'amministrazione
       </Link>
+    </main>
+  );
+}
+
+function DomainRuntimePage() {
+  const { id } = useParams();
+
+  return (
+    <main className="runtime-page">
+      <h1>Runtime dominio applicativo {id}</h1>
     </main>
   );
 }
@@ -2404,7 +2229,7 @@ function ConfigurationError() {
       <p className="eyebrow">Errore di configurazione</p>
       <h1>Dati non disponibili</h1>
       <p className="page-intro">
-        Non &egrave; stato possibile caricare i dati delle istanze e degli ambienti.
+        Non &egrave; stato possibile caricare i dati dei domini applicativi.
       </p>
       <a className="message-link" href={import.meta.env.BASE_URL}>
         Ricarica la pagina
@@ -2415,22 +2240,22 @@ function ConfigurationError() {
 
 const router = createBrowserRouter(
   [
+    { path: "/", element: <Navigate to={ADMIN_BASE} replace /> },
+    { path: "/app", element: <Navigate to={ADMIN_BASE} replace /> },
     {
-      path: "/",
+      path: ADMIN_BASE,
       loader: loadConfiguration,
       HydrateFallback: ConfigurationLoading,
       element: <AppShell />,
       errorElement: <ConfigurationError />,
       children: [
-        { index: true, element: <GrainInstanceSelection /> },
+        { index: true, element: <Navigate to="domini" replace /> },
         {
-          path: "grain-instances/:instanceId",
-          element: <GrainInstanceLayout />,
+          element: <AdministrationLayout />,
           children: [
-            { index: true, element: <Navigate to="domini" replace /> },
-            { path: "domini", element: <GrainInstanceDomains /> },
-            { path: "upp", element: <InstanceUpps /> },
-            { path: "upp/store", element: <InstanceUppStore /> },
+            { path: "domini", element: <AdministrationDomains /> },
+            { path: "packages", element: <AdministrationPackages /> },
+            { path: "packages/store", element: <PackageStore /> },
           ],
         },
         {
@@ -2456,15 +2281,15 @@ const router = createBrowserRouter(
           ],
         },
         {
-          path: "upp/:uppId",
-          element: <UppLayout />,
+          path: "packages/:packageId",
+          element: <PackageLayout />,
           children: [
             { index: true, element: <Navigate to="dettaglio" replace /> },
-            { path: "dettaglio", element: <UppDetail /> },
-            { path: "configurazione", element: <UppConfigurationPage /> },
-            { path: "entita", element: <UppEntities /> },
-            { path: "micro-executors", element: <UppMicroExecutors /> },
-            { path: "servizi", element: <UppServices /> },
+            { path: "dettaglio", element: <PackageDetail /> },
+            { path: "configurazione", element: <PackageConfigurationPage /> },
+            { path: "entita", element: <PackageEntities /> },
+            { path: "micro-executors", element: <PackageMicroExecutors /> },
+            { path: "servizi", element: <PackageServices /> },
           ],
         },
         {
@@ -2498,6 +2323,8 @@ const router = createBrowserRouter(
         { path: "*", element: <NotFoundPage /> },
       ],
     },
+    { path: "/app/:id/*", element: <DomainRuntimePage /> },
+    { path: "*", element: <Navigate to={ADMIN_BASE} replace /> },
   ],
   { basename: import.meta.env.BASE_URL },
 );

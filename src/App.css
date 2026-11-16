@@ -149,14 +149,6 @@
   flex-wrap: wrap;
 }
 
-.upp-heading-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
 .analysis-button {
   padding: 10px 16px;
   border: 1px solid var(--accent);
@@ -335,6 +327,12 @@
 .environment-summary-card .json-trigger {
   width: 100%;
   margin-top: 16px;
+}
+
+.environment-summary-card .analysis-button {
+  display: block;
+  margin-top: 16px;
+  text-align: center;
 }
 
 .json-trigger,
@@ -688,9 +686,6 @@
   outline-offset: 3px;
 }
 
-.health-card .platform-tag {
-  margin-top: 12px;
-}
 
 .health-status {
   padding: 4px 8px;
@@ -958,7 +953,7 @@
   outline-offset: 3px;
 }
 
-.entities-upp-id {
+.entities-package-id {
   display: block;
   margin-top: 3px;
   color: var(--muted);
@@ -1032,52 +1027,13 @@
   line-height: 1.5;
 }
 
-.upp-group > h3 {
-  margin: 0 0 12px;
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 20px;
-  font-weight: 400;
-}
 
-.upp-standard-group {
-  margin-top: 24px;
-}
 
-.upp-standard-group summary {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--ink);
-  cursor: pointer;
-  font-weight: 600;
-}
 
-.upp-standard-group summary::before {
-  content: "\25b8";
-  color: var(--accent);
-}
 
-.upp-standard-group[open] summary::before {
-  content: "\25be";
-}
 
-.upp-standard-group summary:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
 
-.upp-standard-group summary .detail-format {
-  margin-left: auto;
-}
 
-.upp-standard-group .micro-executor-list {
-  margin-top: 12px;
-}
 
 .micro-executor-list {
   display: grid;
@@ -1125,37 +1081,7 @@
   white-space: nowrap;
 }
 
-.upp-status {
-  padding: 4px 8px;
-  border: 1px solid var(--line-strong);
-  border-radius: 3px;
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
 
-.upp-status.is-active {
-  border-color: var(--status);
-  color: #306653;
-  background: #edf5f1;
-}
-
-.platform-tag {
-  align-self: flex-start;
-  display: inline-block;
-  padding: 4px 8px;
-  border: 1px solid var(--accent-border);
-  border-radius: 3px;
-  color: var(--accent);
-  background: var(--code-bg);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.environment-summary-card .platform-tag {
-  margin-top: 12px;
-}
 
 .micro-executor-card h3 {
   margin: 0;
@@ -1600,4 +1526,43 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+.runtime-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 16px;
+  text-align: center;
+}
+
+.runtime-page h1 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.5rem);
+  line-height: 1.1;
+}
+
+.config-status {
+  padding: 4px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.config-status.is-active {
+  border-color: var(--status);
+  color: #306653;
+  background: #edf5f1;
+}
+
+.detail-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
 }

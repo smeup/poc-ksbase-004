@@ -2,176 +2,21 @@
   "schemaVersion": 1,
   "microExecutors": [
     {
-      "id": "me-java-batch",
-      "title": "Batch",
-      "description": "Micro executor di piattaforma per eventi e workflow.",
-      "url": "http://me-java-batch-svc",
-      "uppConfigurationSchemas": {
-        "KS_194": {
-          "type": "object",
-          "properties": {
-            "workflow": {
-              "type": "object",
-              "properties": {
-                "enabled": { "type": "boolean", "description": "Abilita eventi e workflow." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [],
-      "apis": []
-    },
-    {
-      "id": "a37-service",
-      "title": "A37 service",
-      "description": "Micro executor di piattaforma per l'integrazione IoT.",
-      "url": "http://a37-service-svc",
-      "uppConfigurationSchemas": {
-        "KS_195": {
-          "type": "object",
-          "properties": {
-            "iot": {
-              "type": "object",
-              "properties": {
-                "endpoint": { "type": "string", "description": "Endpoint di integrazione IoT." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [],
-      "apis": []
-    },
-    {
-      "id": "me-java-restapi",
-      "title": "REST API",
-      "description": "Micro executor di piattaforma per le API REST.",
-      "url": "http://me-java-restapi-svc",
-      "uppConfigurationSchemas": {
-        "KS_197": {
-          "type": "object",
-          "properties": {
-            "restApi": {
-              "type": "object",
-              "properties": {
-                "basePath": { "type": "string", "description": "Percorso base delle API REST." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [],
-      "apis": []
-    },
-    {
-      "id": "me-java-mcp-server",
-      "title": "MCP server",
-      "description": "Micro executor MCP della piattaforma.",
-      "url": "http://me-java-mcp-server-svc",
-      "uppConfigurationSchemas": {
-        "KS_197": {
-          "type": "object",
-          "properties": {
-            "mcpServer": {
-              "type": "object",
-              "properties": {
-                "enabled": { "type": "boolean", "description": "Abilita il server MCP." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [],
-      "apis": []
-    },
-    {
-      "id": "me-java-h53",
-      "title": "H53",
-      "description": "Micro executor di piattaforma per report e stampa.",
-      "url": "http://me-java-h53-svc",
-      "uppConfigurationSchemas": {
-        "KS_198": {
-          "type": "object",
-          "properties": {
-            "reporting": {
-              "type": "object",
-              "properties": {
-                "defaultFormat": { "type": "string", "description": "Formato predefinito dei report." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [],
-      "apis": []
-    },
-    {
-      "id": "me-java-ufr",
-      "title": "UFR",
-      "description": "Micro executor UFR della piattaforma.",
-      "url": "http://me-java-ufr-svc",
-      "uppConfigurationSchemas": {
-        "KS_199": {
-          "type": "object",
-          "properties": {
-            "ufr": {
-              "type": "object",
-              "properties": {
-                "enabled": { "type": "boolean", "description": "Abilita le funzioni UFR." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [],
-      "apis": []
-    },
-    {
-      "id": "me-java-rpgle-std",
-      "title": "RPGLE standard",
-      "description": "Micro executor RPGLE standard della piattaforma.",
-      "url": "http://me-java-rpgle-std-svc",
-      "uppConfigurationSchemas": {
-        "KS_203": {
-          "type": "object",
-          "properties": {
-            "webup": {
-              "type": "object",
-              "properties": {
-                "enabled": { "type": "boolean", "description": "Abilita Webup.js." }
-              }
-            }
-          }
-        },
-        "KS_196": {
-          "type": "object",
-          "properties": {
-            "core": {
-              "type": "object",
-              "properties": {
-                "language": { "type": "string", "description": "Lingua delle funzioni di base." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [],
-      "apis": []
-    },
-    {
       "id": "me-java-as400proxy",
       "title": "Proxy AS400",
       "description": "Micro executor per i servizi AS400.",
       "url": "http://me-java-as400proxy-svc",
-      "uppConfigurationSchemas": {
-        "B£_000": {
+      "packageConfigurationSchemas": {
+        "smeup-es": {
           "type": "object",
           "properties": {
             "as400": {
               "type": "object",
               "properties": {
-                "host": { "type": "string", "description": "Host del sistema AS400." }
+                "host": {
+                  "type": "string",
+                  "description": "Host del sistema AS400."
+                }
               }
             }
           }
@@ -182,151 +27,78 @@
         {
           "id": "LOA10_SE",
           "description": "Lista oggetti.",
-          "uppIds": ["B£_000"],
+          "packageIds": [
+            "smeup-es"
+          ],
           "microExecutorId": "me-java-as400proxy"
         },
         {
           "id": "WESER_23",
           "description": "Tooltip.",
-          "uppIds": ["B£_000"],
+          "packageIds": [
+            "smeup-es"
+          ],
           "microExecutorId": "me-java-as400proxy"
         },
         {
           "id": "JATRE_18C",
           "description": "Interprete schede.",
-          "uppIds": ["B£_000"],
+          "packageIds": [
+            "smeup-es"
+          ],
           "microExecutorId": "me-java-as400proxy"
         }
       ]
     },
     {
-      "id": "me-java-smeuplab",
-      "title": "Smeup LAB",
-      "description": "Micro executor per i servizi Smeup LAB.",
-      "url": "http://me-java-smeuplab-svc",
-      "uppConfigurationSchemas": {
-        "X1_LAB": {
+      "id": "me-java-h53",
+      "title": "H53",
+      "description": "Micro executor di piattaforma per report e stampa.",
+      "url": "http://me-java-h53-svc",
+      "packageConfigurationSchemas": {
+        "smeup-es": {
           "type": "object",
           "properties": {
-            "lab": {
+            "reporting": {
               "type": "object",
               "properties": {
-                "repository": { "type": "string", "description": "Repository GitHub usato dai servizi LAB." }
+                "defaultFormat": {
+                  "type": "string",
+                  "description": "Formato predefinito dei report."
+                }
               }
             }
           }
         }
       },
       "dataSources": [],
-      "apis": [
-        {
-          "id": "X1_LAB_01",
-          "description": "Processi di sviluppo.",
-          "uppIds": ["X1_LAB"],
-          "microExecutorId": "me-java-smeuplab"
-        },
-        {
-          "id": "X1_LAB_02",
-          "description": "Integrazione GitHub.",
-          "uppIds": ["X1_LAB"],
-          "microExecutorId": "me-java-smeuplab"
-        }
-      ]
-    },
-    {
-      "id": "me-java-as400-proxy-srvlab",
-      "title": "Proxy AS400 SRVLAB",
-      "description": "Proxy verso AS400 srvlab01.smeup.com.",
-      "url": "http://me-java-as400-proxy-srvlab-svc",
-      "uppConfigurationSchemas": {
-        "upp-clienti": {
-          "type": "object",
-          "properties": {
-            "clienti": {
-              "type": "object",
-              "properties": {
-                "library": { "type": "string", "description": "Libreria AS400 dei clienti." }
-              }
-            }
-          }
-        },
-        "upp-ordini": {
-          "type": "object",
-          "properties": {
-            "ordini": {
-              "type": "object",
-              "properties": {
-                "library": { "type": "string", "description": "Libreria AS400 degli ordini." }
-              }
-            }
-          }
-        }
-      },
-      "dataSources": [
-        {
-          "id": "db2-srvlab",
-          "title": "DB2 SRVLAB",
-          "type": "DB2 for i (AS/400)",
-          "description": "Database dei dati gestiti dal proxy AS400."
-        }
-      ],
-      "apis": [
-        {
-          "id": "AS_001_01",
-          "description": "Recupera il saldo contabile di un cliente.",
-          "uppIds": ["upp-clienti"],
-          "microExecutorId": "me-java-as400-proxy-srvlab"
-        },
-        {
-          "id": "AS_002_02",
-          "description": "Legge i dati anagrafici e amministrativi di un cliente.",
-          "uppIds": ["upp-clienti"],
-          "microExecutorId": "me-java-as400-proxy-srvlab"
-        },
-        {
-          "id": "AS_003_03",
-          "description": "Elenca gli ordini cliente ancora aperti.",
-          "uppIds": ["upp-ordini"],
-          "microExecutorId": "me-java-as400-proxy-srvlab"
-        },
-        {
-          "id": "AS_004_04",
-          "description": "Verifica la disponibilita di un articolo per deposito.",
-          "uppIds": ["upp-ordini"],
-          "microExecutorId": "me-java-as400-proxy-srvlab"
-        },
-        {
-          "id": "AS_005_05",
-          "description": "Recupera lo storico delle consegne di un cliente.",
-          "uppIds": ["upp-ordini"],
-          "microExecutorId": "me-java-as400-proxy-srvlab"
-        }
-      ]
+      "apis": []
     },
     {
       "id": "me-node-holos",
       "title": "Proxy HOLOS L64",
       "description": "Proxy verso L64 per l'ambiente HOLOS.",
       "url": "http://me-node-holos-svc",
-      "uppConfigurationSchemas": {
-        "upp-holos": {
-          "type": "object",
-          "properties": {
-            "holos": {
-              "type": "object",
-              "properties": {
-                "endpoint": { "type": "string", "description": "Endpoint dei servizi operativi HOLOS." }
-              }
-            }
-          }
-        },
-        "HO_000": {
+      "packageConfigurationSchemas": {
+        "holos": {
           "type": "object",
           "properties": {
             "l64": {
               "type": "object",
               "properties": {
-                "endpoint": { "type": "string", "description": "Endpoint del connettore L64." }
+                "endpoint": {
+                  "type": "string",
+                  "description": "Endpoint del connettore L64."
+                }
+              }
+            },
+            "holos": {
+              "type": "object",
+              "properties": {
+                "endpoint": {
+                  "type": "string",
+                  "description": "Endpoint dei servizi operativi HOLOS."
+                }
               }
             }
           }
@@ -344,71 +116,114 @@
         {
           "id": "HO_000_01",
           "description": "Gestisce le classi di HOLOS L64.",
-          "uppIds": ["HO_000"],
+          "packageIds": [
+            "holos"
+          ],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_000_02",
           "description": "Gestisce le istanze di HOLOS L64.",
-          "uppIds": ["HO_000"],
+          "packageIds": [
+            "holos"
+          ],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_001_01",
           "description": "Recupera il dettaglio di un ordine di lavoro.",
-          "uppIds": ["upp-holos"],
+          "packageIds": [
+            "holos"
+          ],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_002_02",
           "description": "Elenca la pianificazione delle risorse operative.",
-          "uppIds": ["upp-holos"],
+          "packageIds": [
+            "holos"
+          ],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_003_03",
           "description": "Consulta gli appuntamenti previsti in un intervallo.",
-          "uppIds": ["upp-holos"],
+          "packageIds": [
+            "holos"
+          ],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_004_04",
           "description": "Legge lo stato di avanzamento di una pratica.",
-          "uppIds": ["upp-holos"],
+          "packageIds": [
+            "holos"
+          ],
           "microExecutorId": "me-node-holos"
         },
         {
           "id": "HO_005_05",
           "description": "Restituisce il riepilogo delle attivita di un flusso.",
-          "uppIds": ["upp-holos"],
+          "packageIds": [
+            "holos"
+          ],
           "microExecutorId": "me-node-holos"
         }
       ]
     },
     {
-      "id": "me-java-e-invoice",
-      "title": "Fatturazione elettronica",
-      "description": "Servizio per la gestione della fatturazione elettronica.",
-      "url": "http://me-java-e-invoice-svc",
-      "uppConfigurationSchemas": {
-        "upp-clienti": {
+      "id": "me-java-rpgle-std",
+      "title": "RPGLE standard",
+      "description": "Micro executor RPGLE standard della piattaforma.",
+      "url": "http://me-java-rpgle-std-svc",
+      "packageConfigurationSchemas": {
+        "smeup-multipiattaforma": {
           "type": "object",
           "properties": {
-            "destinatari": {
+            "core": {
               "type": "object",
               "properties": {
-                "validationEnabled": { "type": "boolean", "description": "Abilita la verifica dei destinatari." }
+                "language": {
+                  "type": "string",
+                  "description": "Lingua delle funzioni di base."
+                }
+              }
+            },
+            "webup": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Abilita Webup.js."
+                }
               }
             }
           }
-        },
-        "upp-fatturazione": {
+        }
+      },
+      "dataSources": [],
+      "apis": []
+    },
+    {
+      "id": "me-java-evodoc",
+      "title": "Evodoc",
+      "description": "Micro executor per acquisizione e conservazione documentale.",
+      "url": "http://me-java-evodoc-svc",
+      "packageConfigurationSchemas": {
+        "evodoc": {
           "type": "object",
           "properties": {
-            "fatturazione": {
+            "evodoc": {
               "type": "object",
               "properties": {
-                "endpoint": { "type": "string", "description": "Endpoint della fatturazione elettronica." }
+                "repository": {
+                  "type": "string",
+                  "description": "Repository documentale di destinazione."
+                },
+                "retentionYears": {
+                  "type": "integer",
+                  "description": "Anni di conservazione predefiniti."
+                }
               }
             }
           }
@@ -416,42 +231,80 @@
       },
       "dataSources": [
         {
-          "id": "postgres-e-invoice",
-          "title": "PostgreSQL fatturazione",
-          "type": "Database PostgreSQL",
-          "description": "Database della fatturazione elettronica."
+          "id": "evodoc-storage",
+          "title": "Storage Evodoc",
+          "type": "Object storage",
+          "description": "Archivio dei documenti acquisiti."
         }
       ],
       "apis": [
         {
-          "id": "EI_001_01",
-          "description": "Elenca le fatture emesse secondo i filtri richiesti.",
-          "uppIds": ["upp-fatturazione"],
-          "microExecutorId": "me-java-e-invoice"
+          "id": "EVODOC_01",
+          "description": "Acquisizione documenti.",
+          "packageIds": [
+            "evodoc"
+          ],
+          "microExecutorId": "me-java-evodoc"
         },
         {
-          "id": "EI_002_02",
-          "description": "Recupera l'esito di trasmissione di una fattura.",
-          "uppIds": ["upp-fatturazione"],
-          "microExecutorId": "me-java-e-invoice"
+          "id": "EVODOC_02",
+          "description": "Ricerca documenti per metadati.",
+          "packageIds": [
+            "evodoc"
+          ],
+          "microExecutorId": "me-java-evodoc"
+        }
+      ]
+    },
+    {
+      "id": "me-java-archismall",
+      "title": "Archismall",
+      "description": "Micro executor per l'archiviazione di allegati e fascicoli.",
+      "url": "http://me-java-archismall-svc",
+      "packageConfigurationSchemas": {
+        "archismall": {
+          "type": "object",
+          "properties": {
+            "archive": {
+              "type": "object",
+              "properties": {
+                "basePath": {
+                  "type": "string",
+                  "description": "Percorso radice dell'archivio."
+                },
+                "maxFileBytes": {
+                  "type": "integer",
+                  "description": "Dimensione massima di un allegato in byte."
+                }
+              }
+            }
+          }
+        }
+      },
+      "dataSources": [
+        {
+          "id": "archismall-fs",
+          "title": "File system Archismall",
+          "type": "File system",
+          "description": "Cartelle dei fascicoli archiviati."
+        }
+      ],
+      "apis": [
+        {
+          "id": "ARCHI_01",
+          "description": "Archiviazione allegati.",
+          "packageIds": [
+            "archismall"
+          ],
+          "microExecutorId": "me-java-archismall"
         },
         {
-          "id": "EI_003_03",
-          "description": "Verifica i dati del destinatario prima dell'invio.",
-          "uppIds": ["upp-clienti", "upp-fatturazione"],
-          "microExecutorId": "me-java-e-invoice"
-        },
-        {
-          "id": "EI_004_04",
-          "description": "Prepara il documento fattura per la trasmissione.",
-          "uppIds": ["upp-fatturazione"],
-          "microExecutorId": "me-java-e-invoice"
-        },
-        {
-          "id": "EI_005_05",
-          "description": "Richiede un nuovo invio di una fattura non consegnata.",
-          "uppIds": ["upp-fatturazione"],
-          "microExecutorId": "me-java-e-invoice"
+          "id": "ARCHI_02",
+          "description": "Consultazione fascicoli.",
+          "packageIds": [
+            "archismall"
+          ],
+          "microExecutorId": "me-java-archismall"
         }
       ]
     }

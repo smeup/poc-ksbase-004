@@ -1,4 +1,4 @@
-export type UppEntity = {
+export type PackageEntity = {
   id: string;
   description: string;
 };
@@ -7,9 +7,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function validateUppEntities(uppId: string, value: unknown): void {
+export function validatePackageEntities(packageId: string, value: unknown): void {
   if (!Array.isArray(value)) {
-    throw new Error(`Elenco entità non valido per la UPP ${uppId}.`);
+    throw new Error(`Elenco entità non valido per il package ${packageId}.`);
   }
   const ids = new Set<string>();
   const entities: unknown[] = value;
@@ -19,17 +19,17 @@ export function validateUppEntities(uppId: string, value: unknown): void {
       typeof entity.id !== "string" || !entity.id.trim() ||
       typeof entity.description !== "string" || !entity.description.trim()
     ) {
-      throw new Error(`Entità non valida per la UPP ${uppId}.`);
+      throw new Error(`Entità non valida per il package ${packageId}.`);
     }
     if (ids.has(entity.id)) {
-      throw new Error(`Entità ${entity.id} duplicata nella UPP ${uppId}.`);
+      throw new Error(`Entità ${entity.id} duplicata nel package ${packageId}.`);
     }
     ids.add(entity.id);
   }
 }
 
-export function collectUppEntities<T extends { id: string; entities: UppEntity[] }>(
-  upps: T[],
-): { upp: T; entity: UppEntity }[] {
-  return upps.flatMap((upp) => upp.entities.map((entity) => ({ upp, entity })));
+export function collectPackageEntities<T extends { id: string; entities: PackageEntity[] }>(
+  packages: T[],
+): { pkg: T; entity: PackageEntity }[] {
+  return packages.flatMap((pkg) => pkg.entities.map((entity) => ({ pkg, entity })));
 }
