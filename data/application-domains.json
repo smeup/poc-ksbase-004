@@ -3,51 +3,15 @@
   "environments": [
     {
       "id": "ges_10adv",
-      "grainInstance": "smeup-si",
       "title": "Smeup BSA",
       "description": "Ambiente applicativo Smeup BSA.",
-      "uppConfigurations": {
-        "B£_000": {
+      "packageConfigurations": {
+        "smeup-es": {
           "as400": {
             "host": "as400-bsa.example.invalid"
-          }
-        },
-        "KS_194": {
-          "workflow": {
-            "enabled": true
-          }
-        },
-        "KS_195": {
-          "iot": {
-            "endpoint": "https://iot.example.invalid/ges_10adv"
-          }
-        },
-        "KS_197": {
-          "restApi": {
-            "basePath": "/api/ges_10adv"
           },
-          "mcpServer": {
-            "enabled": false
-          }
-        },
-        "KS_198": {
           "reporting": {
             "defaultFormat": "pdf"
-          }
-        },
-        "KS_199": {
-          "ufr": {
-            "enabled": true
-          }
-        },
-        "KS_203": {
-          "webup": {
-            "enabled": true
-          }
-        },
-        "KS_196": {
-          "core": {
-            "language": "it"
           }
         }
       },
@@ -75,56 +39,15 @@
     },
     {
       "id": "ges_49adv",
-      "grainInstance": "smeup-si",
       "title": "Smeup LAB",
       "description": "Ambiente applicativo Smeup LAB.",
-      "uppConfigurations": {
-        "B£_000": {
+      "packageConfigurations": {
+        "smeup-es": {
           "as400": {
             "host": "as400-lab.example.invalid"
-          }
-        },
-        "X1_LAB": {
-          "lab": {
-            "repository": "smeup/lab-services"
-          }
-        },
-        "KS_194": {
-          "workflow": {
-            "enabled": true
-          }
-        },
-        "KS_195": {
-          "iot": {
-            "endpoint": "https://iot.example.invalid/ges_49adv"
-          }
-        },
-        "KS_197": {
-          "restApi": {
-            "basePath": "/api/ges_49adv"
           },
-          "mcpServer": {
-            "enabled": false
-          }
-        },
-        "KS_198": {
           "reporting": {
             "defaultFormat": "pdf"
-          }
-        },
-        "KS_199": {
-          "ufr": {
-            "enabled": true
-          }
-        },
-        "KS_203": {
-          "webup": {
-            "enabled": true
-          }
-        },
-        "KS_196": {
-          "core": {
-            "language": "it"
           }
         }
       },
@@ -152,23 +75,12 @@
     },
     {
       "id": "ges_11adv",
-      "grainInstance": "smeup-si",
       "title": "Smeup ICS",
       "description": "Ambiente applicativo Smeup ICS.",
-      "uppConfigurations": {
-        "B£_000": {
+      "packageConfigurations": {
+        "smeup-es": {
           "as400": {
             "host": "as400-ics.example.invalid"
-          }
-        },
-        "X1_LAB": {
-          "lab": {
-            "repository": "smeup/ics-lab"
-          }
-        },
-        "KS_194": {
-          "workflow": {
-            "enabled": true
           }
         }
       },
@@ -191,150 +103,6 @@
           "name": "Smeup ICS",
           "mark": "ICS",
           "alt": "Logo Smeup ICS"
-        }
-      }
-    },
-    {
-      "id": "cliente-a",
-      "grainInstance": "holos-saas",
-      "title": "Cliente A",
-      "description": "Ambiente applicativo HOLOS L64 SaaS per il Cliente A.",
-      "uppConfigurations": {
-        "HO_000": {
-          "l64": {
-            "endpoint": "https://l64.example.invalid/cliente-a"
-          }
-        },
-        "KS_194": {
-          "workflow": {
-            "enabled": true
-          }
-        },
-        "KS_195": {
-          "iot": {
-            "endpoint": "https://iot.example.invalid/cliente-a"
-          }
-        },
-        "KS_197": {
-          "restApi": {
-            "basePath": "/api/cliente-a"
-          },
-          "mcpServer": {
-            "enabled": false
-          }
-        },
-        "KS_198": {
-          "reporting": {
-            "defaultFormat": "pdf"
-          }
-        },
-        "KS_199": {
-          "ufr": {
-            "enabled": true
-          }
-        },
-        "KS_203": {
-          "webup": {
-            "enabled": true
-          }
-        },
-        "KS_196": {
-          "core": {
-            "language": "it"
-          }
-        }
-      },
-      "authorizations": [],
-      "uiCustomization": {
-        "theme": {
-          "id": "default",
-          "name": "Tema predefinito",
-          "mode": "light",
-          "accent": "#a51f38"
-        },
-        "localization": {
-          "locale": "it-IT",
-          "language": "Italiano",
-          "dateFormat": "dd/MM/yyyy",
-          "numberFormat": "it-IT"
-        },
-        "activeLogo": {
-          "id": "cliente-a-primary",
-          "name": "Cliente A",
-          "mark": "A",
-          "alt": "Logo Cliente A"
-        }
-      }
-    },
-    {
-      "id": "cliente-b",
-      "grainInstance": "holos-saas",
-      "title": "Cliente B",
-      "description": "Ambiente applicativo HOLOS L64 SaaS per il Cliente B.",
-      "uppConfigurations": {
-        "HO_000": {
-          "l64": {
-            "endpoint": "https://l64.example.invalid/cliente-b"
-          }
-        },
-        "KS_194": {
-          "workflow": {
-            "enabled": true
-          }
-        },
-        "KS_195": {
-          "iot": {
-            "endpoint": "https://iot.example.invalid/cliente-b"
-          }
-        },
-        "KS_197": {
-          "restApi": {
-            "basePath": "/api/cliente-b"
-          },
-          "mcpServer": {
-            "enabled": false
-          }
-        },
-        "KS_198": {
-          "reporting": {
-            "defaultFormat": "pdf"
-          }
-        },
-        "KS_199": {
-          "ufr": {
-            "enabled": true
-          }
-        },
-        "KS_203": {
-          "webup": {
-            "enabled": true
-          }
-        },
-        "KS_196": {
-          "core": {
-            "language": "it"
-          }
-        }
-      },
-      "authorizations": [],
-      "uiCustomization": {
-        "theme": {
-          "id": "default",
-          "name": "Tema predefinito",
-          "mode": "light",
-          "accent": "#a51f38"
-        },
-        "localization": {
-          "locale": "it-IT",
-          "language": "Italiano",
-          "dateFormat": "dd/MM/yyyy",
-          "numberFormat": "it-IT"
-        },
-        "activeLogo": {
-          "id": "cliente-b-primary",
-          "name": "Cliente B",
-          "mark": "B",
-          "alt": "Logo Cliente B"
         }
       }
     }

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "id": "smeup-es",
+      "title": "Smeup ES",
+      "description": "Package per i servizi Smeup ES su AS400, con report e stampa.",
+      "microExecutorIds": ["me-java-as400proxy", "me-java-h53"],
+      "installed": true,
+      "entities": [
+        {"id": "OGGETTO_AS400", "description": "Oggetto consultabile tramite il connettore AS400."},
+        {"id": "REPORT", "description": "Report gestito dalla piattaforma."}
+      ]
+    },
+    {
+      "id": "holos",
+      "title": "HOLOS",
+      "description": "Package per la gestione di classi, istanze e attività di HOLOS L64.",
+      "microExecutorIds": ["me-node-holos"],
+      "installed": true,
+      "entities": [
+        {"id": "CLASSE_L64", "description": "Classe HOLOS L64."},
+        {"id": "ISTANZA_L64", "description": "Istanza HOLOS L64."},
+        {"id": "ATTIVITA_HOLOS", "description": "Attività operativa HOLOS."}
+      ]
+    },
+    {
+      "id": "smeup-multipiattaforma",
+      "title": "Smeup Multipiattaforma",
+      "description": "Package per le funzioni di base e Webup.js della piattaforma Smeup.",
+      "microExecutorIds": ["me-java-rpgle-std"],
+      "installed": false,
+      "entities": [
+        {"id": "OGGETTO_CORE", "description": "Oggetto delle funzioni di base."},
+        {"id": "PAGINA_WEBUP", "description": "Pagina gestita da Webup.js."}
+      ]
+    },
+    {
+      "id": "evodoc",
+      "title": "Evodoc",
+      "description": "Package per la gestione documentale: acquisizione, classificazione e conservazione dei documenti.",
+      "microExecutorIds": ["me-java-evodoc"],
+      "installed": false,
+      "entities": [
+        {"id": "DOCUMENTO", "description": "Documento acquisito e classificato."},
+        {"id": "CLASSE_DOCUMENTALE", "description": "Classe che definisce metadati e regole di conservazione."}
+      ]
+    },
+    {
+      "id": "archismall",
+      "title": "Archismall",
+      "description": "Package per l'archiviazione leggera di allegati e fascicoli per le piccole realtà.",
+      "microExecutorIds": ["me-java-archismall"],
+      "installed": false,
+      "entities": [
+        {"id": "FASCICOLO", "description": "Fascicolo che raggruppa allegati correlati."},
+        {"id": "ALLEGATO", "description": "File archiviato in un fascicolo."}
+      ]
+    }
+  ]
+}
