@@ -41,7 +41,7 @@ export function parseHealthChecks(value: unknown): PackageHealthCheck[] {
   });
 }
 
-export function getDomainHealth<T extends { id: string }>(
+export function getDomainHealth<T extends { name: string }>(
   domainId: string,
   packages: T[],
   checks: PackageHealthCheck[],
@@ -50,7 +50,7 @@ export function getDomainHealth<T extends { id: string }>(
     checks.filter((check) => check.domainId === domainId).map((check) => [check.packageId, check]),
   );
   return packages.map((pkg) => {
-    const check = domainChecks.get(pkg.id);
+    const check = domainChecks.get(pkg.name);
     return { pkg, health: check ?? { status: "unknown" } };
   });
 }

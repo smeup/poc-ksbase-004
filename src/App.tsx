@@ -21,7 +21,6 @@ import {
   type JsonSchema,
   type JsonValue,
 } from "./schema-properties";
-import { collectPackageEntities, validatePackageEntities, type PackageEntity } from "./package-entities";
 import "./App.css";
 
 const GRAIN_TITLE = "Smeup SI";
@@ -47,37 +46,50 @@ type UiCustomization = {
   };
 };
 
-type MicroExecutor = {
-  id: string;
-  title: string;
-  description: string;
-  url: string;
-  apis: ApiDefinition[];
-  dataSources: DataSource[];
-  packageConfigurationSchemas: Record<string, JsonSchema>;
+type DslComponent = {
+  name: string;
+  type: "dsl";
+  repository: string;
+  ref: string;
 };
 
-type DataSource = {
+type MicroExecutorConfigurationSchemas = {
+  instance?: JsonSchema;
+  applicativeDomain?: JsonSchema;
+};
+
+type MicroExecutorService = {
   id: string;
-  title: string;
-  type: string;
   description: string;
 };
 
-type ApiDefinition = {
-  id: string;
-  description: string;
-  microExecutorId: string;
-  packageIds: string[];
+type MicroExecutorComponent = {
+  name: string;
+  type: "micro-executor";
+  image: string;
+  configuration?: MicroExecutorConfigurationSchemas;
+  /** Servizi (API) esposti dal micro executor. */
+  services?: MicroExecutorService[];
 };
 
-type Package = {
-  id: string;
-  title: string;
+type PackageComponent = DslComponent | MicroExecutorComponent;
+
+type PackageManifest = {
+  name: string;
+  version: string;
+  grainVersion: string;
+  publisher: string;
   description: string;
-  microExecutorIds: string[];
+  publishedAt: string;
+  components: PackageComponent[];
+};
+
+type Package = PackageManifest & {
   installed: boolean;
-  entities: PackageEntity[];
+};
+
+type MicroExecutor = MicroExecutorComponent & {
+  packageName: string;
 };
 
 type Authorization = {
@@ -87,11 +99,19 @@ type Authorization = {
 
 type PackageConfigurationValues = { [key: string]: JsonValue };
 
+type DomainPackage = {
+  name: string;
+  enabled: boolean;
+};
+
 type ApplicationDomain = {
   id: string;
   title: string;
   description: string;
-  packageConfigurations: Record<string, PackageConfigurationValues>;
+  /** Package installati associati al dominio, attivi o disattivati. */
+  packages: DomainPackage[];
+  /** Valori `applicativeDomain` per package e micro executor: packageName -> microExecutorName -> valori. */
+  packageConfigurations: Record<string, Record<string, PackageConfigurationValues>>;
   authorizations: Authorization[];
   uiCustomization: UiCustomization;
 };
@@ -101,14 +121,10 @@ type DomainConfiguration = {
   environments: ApplicationDomain[];
 };
 
-type MicroExecutorConfiguration = {
+type PackageCatalog = {
   schemaVersion: number;
-  microExecutors: MicroExecutor[];
-};
-
-type PackageConfiguration = {
-  schemaVersion: number;
-  packages: Package[];
+  installed: string[];
+  packages: PackageManifest[];
 };
 
 type ApplicationConfiguration = {
@@ -119,13 +135,15 @@ type ApplicationConfiguration = {
 
 type EnvironmentContext = {
   environment: ApplicationDomain;
+  /** Package attivi nel dominio. */
   packages: Package[];
-  microExecutors: MicroExecutor[];
+  /** Tutti i package associati al dominio, con il loro stato. */
+  domainPackages: { pkg: Package; enabled: boolean }[];
 };
 
 type MicroExecutorContext = {
   microExecutor: MicroExecutor;
-  packages: Package[];
+  pkg: Package;
 };
 
 type PackageContext = {
@@ -222,75 +240,88 @@ const analysisCases = [
   },
 ];
 
+function getMicroExecutors(pkg: PackageManifest): MicroExecutor[] {
+  return pkg.components
+    .filter((component): component is MicroExecutorComponent => component.type === "micro-executor")
+    .map((component) => ({ ...component, packageName: pkg.name }));
+}
+
+function getDslComponents(pkg: PackageManifest): DslComponent[] {
+  return pkg.components.filter((component): component is DslComponent => component.type === "dsl");
+}
+
+function isSchemaObject(value: unknown): value is JsonSchema {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
 async function loadConfiguration(): Promise<ApplicationConfiguration> {
-  const [domainsResponse, microExecutorsResponse, packagesResponse] = await Promise.all([
+  const [domainsResponse, packagesResponse] = await Promise.all([
     fetch(`${import.meta.env.BASE_URL}data/application-domains.json`),
-    fetch(`${import.meta.env.BASE_URL}data/micro-executors.json`),
     fetch(`${import.meta.env.BASE_URL}data/packages.json`),
   ]);
 
-  if (!domainsResponse.ok || !microExecutorsResponse.ok || !packagesResponse.ok) {
+  if (!domainsResponse.ok || !packagesResponse.ok) {
     throw new Error("Impossibile caricare la configurazione dei domini applicativi.");
   }
 
-  const [domainConfiguration, microExecutorConfiguration, packageConfiguration] = await Promise.all([
+  const [domainConfiguration, catalog] = await Promise.all([
     domainsResponse.json() as Promise<DomainConfiguration>,
-    microExecutorsResponse.json() as Promise<MicroExecutorConfiguration>,
-    packagesResponse.json() as Promise<PackageConfiguration>,
+    packagesResponse.json() as Promise<PackageCatalog>,
   ]);
 
-  const microExecutorsById = new Map(
-    microExecutorConfiguration.microExecutors.map((item) => [item.id, item]),
-  );
-  const packagesById = new Map(packageConfiguration.packages.map((item) => [item.id, item]));
-
-  for (const pkg of packageConfiguration.packages) {
-    validatePackageEntities(pkg.id, pkg.entities);
-    if (typeof pkg.installed !== "boolean") {
-      throw new Error(`Stato di installazione non valido per il package ${pkg.id}.`);
+  const packageNames = new Set<string>();
+  const componentNames = new Set<string>();
+  for (const pkg of catalog.packages) {
+    if (typeof pkg.name !== "string" || !pkg.name.trim() || !Array.isArray(pkg.components)) {
+      throw new Error("Manifest di package non valido.");
     }
-    for (const id of pkg.microExecutorIds) {
-      const microExecutor = microExecutorsById.get(id);
-      if (!microExecutor) {
-        throw new Error(`Micro executor ${id} non trovato per il package ${pkg.id}.`);
-      }
-      if (
-        !microExecutor.packageConfigurationSchemas ||
-        !Object.hasOwn(microExecutor.packageConfigurationSchemas, pkg.id)
-      ) {
-        throw new Error(`Schema di configurazione mancante per il package ${pkg.id} nel micro executor ${id}.`);
-      }
+    if (packageNames.has(pkg.name)) {
+      throw new Error(`Package ${pkg.name} duplicato.`);
     }
-  }
-  for (const microExecutor of microExecutorConfiguration.microExecutors) {
-    if (
-      !microExecutor.packageConfigurationSchemas ||
-      typeof microExecutor.packageConfigurationSchemas !== "object" ||
-      Array.isArray(microExecutor.packageConfigurationSchemas)
-    ) {
-      throw new Error(`Schemi di configurazione non validi per il micro executor ${microExecutor.id}.`);
-    }
-    for (const [packageId, schema] of Object.entries(microExecutor.packageConfigurationSchemas)) {
-      const pkg = packagesById.get(packageId);
-      if (!pkg || !pkg.microExecutorIds.includes(microExecutor.id)) {
-        throw new Error(`Package ${packageId} non valido negli schemi del micro executor ${microExecutor.id}.`);
+    packageNames.add(pkg.name);
+    for (const component of pkg.components) {
+      if (componentNames.has(component.name)) {
+        throw new Error(`Componente ${component.name} duplicato nel package ${pkg.name}.`);
       }
-      if (!schema || typeof schema !== "object" || Array.isArray(schema)) {
-        throw new Error(`Schema non valido per il package ${packageId} nel micro executor ${microExecutor.id}.`);
+      componentNames.add(component.name);
+      if (component.type !== "dsl" && component.type !== "micro-executor") {
+        throw new Error(`Tipo di componente non valido per ${(component as { name: string }).name} nel package ${pkg.name}.`);
       }
-    }
-    for (const api of microExecutor.apis) {
-      if (api.microExecutorId !== microExecutor.id) {
-        throw new Error(`Micro executor non valido per il servizio ${api.id}.`);
+      if (component.type === "micro-executor" && component.services !== undefined) {
+        if (
+          !Array.isArray(component.services) ||
+          component.services.some(
+            (service) =>
+              !service ||
+              typeof service.id !== "string" || !service.id.trim() ||
+              typeof service.description !== "string",
+          ) ||
+          new Set(component.services.map((service) => service.id)).size !== component.services.length
+        ) {
+          throw new Error(`Servizi non validi per il micro executor ${component.name}.`);
+        }
       }
-      for (const id of api.packageIds) {
-        const pkg = packagesById.get(id);
-        if (!pkg || !pkg.microExecutorIds.includes(microExecutor.id)) {
-          throw new Error(`Package ${id} non valido per il servizio ${api.id}.`);
+      if (component.type === "micro-executor" && component.configuration !== undefined) {
+        for (const [scope, schema] of Object.entries(component.configuration)) {
+          if (!isSchemaObject(schema)) {
+            throw new Error(`Schema ${scope} non valido per il micro executor ${component.name}.`);
+          }
         }
       }
     }
   }
+  for (const name of catalog.installed) {
+    if (!packageNames.has(name)) {
+      throw new Error(`Il package installato ${name} non esiste nel catalogo.`);
+    }
+  }
+
+  const packages: Package[] = catalog.packages.map((pkg) => ({
+    ...pkg,
+    installed: catalog.installed.includes(pkg.name),
+  }));
+  const packagesByName = new Map(packages.map((pkg) => [pkg.name, pkg]));
+
   for (const environment of domainConfiguration.environments) {
     if (
       !Array.isArray(environment.authorizations) ||
@@ -304,28 +335,55 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
     ) {
       throw new Error(`Autorizzazioni non valide per il dominio ${environment.id}.`);
     }
-    const { packageConfigurations } = environment;
-    if (!packageConfigurations || typeof packageConfigurations !== "object" || Array.isArray(packageConfigurations)) {
-      throw new Error(`Configurazioni package non valide per il dominio ${environment.id}.`);
+    if (
+      !Array.isArray(environment.packages) ||
+      environment.packages.some(
+        (item) => !item || typeof item.name !== "string" || typeof item.enabled !== "boolean",
+      ) ||
+      new Set(environment.packages.map((item) => item.name)).size !== environment.packages.length
+    ) {
+      throw new Error(`Package non validi per il dominio ${environment.id}.`);
     }
-    for (const [packageId, values] of Object.entries(packageConfigurations)) {
-      const pkg = packagesById.get(packageId);
+    for (const { name } of environment.packages) {
+      const pkg = packagesByName.get(name);
       if (!pkg) {
-        throw new Error(`Il package ${packageId} configurato nel dominio ${environment.id} non esiste.`);
+        throw new Error(`Il package ${name} associato al dominio ${environment.id} non esiste.`);
       }
       if (!pkg.installed) {
-        throw new Error(`Il package ${packageId} configurato nel dominio ${environment.id} non è installato.`);
+        throw new Error(`Il package ${name} associato al dominio ${environment.id} non è installato.`);
       }
-      if (!values || typeof values !== "object" || Array.isArray(values)) {
-        throw new Error(`Configurazione non valida per il package ${packageId} nel dominio ${environment.id}.`);
+    }
+    const { packageConfigurations } = environment;
+    if (!isSchemaObject(packageConfigurations)) {
+      throw new Error(`Configurazioni package non valide per il dominio ${environment.id}.`);
+    }
+    for (const [packageName, byMicroExecutor] of Object.entries(packageConfigurations)) {
+      const pkg = packagesByName.get(packageName);
+      if (!pkg) {
+        throw new Error(`Il package ${packageName} configurato nel dominio ${environment.id} non esiste.`);
+      }
+      if (!environment.packages.some((item) => item.name === packageName)) {
+        throw new Error(`Il package ${packageName} configurato nel dominio ${environment.id} non è associato al dominio.`);
+      }
+      if (!isSchemaObject(byMicroExecutor)) {
+        throw new Error(`Configurazione non valida per il package ${packageName} nel dominio ${environment.id}.`);
+      }
+      const microExecutorNames = new Set(getMicroExecutors(pkg).map((item) => item.name));
+      for (const [microExecutorName, values] of Object.entries(byMicroExecutor)) {
+        if (!microExecutorNames.has(microExecutorName)) {
+          throw new Error(`Micro executor ${microExecutorName} non presente nel package ${packageName} (dominio ${environment.id}).`);
+        }
+        if (!isSchemaObject(values)) {
+          throw new Error(`Valori non validi per ${packageName}/${microExecutorName} nel dominio ${environment.id}.`);
+        }
       }
     }
   }
 
   return {
     environments: domainConfiguration.environments,
-    microExecutors: microExecutorConfiguration.microExecutors,
-    packages: packageConfiguration.packages,
+    microExecutors: packages.flatMap(getMicroExecutors),
+    packages,
   };
 }
 
@@ -405,11 +463,10 @@ function AdministrationLayout() {
 }
 
 function AdministrationDashboard() {
-  const { environments, packages, microExecutors } = useOutletContext<ApplicationConfiguration>();
+  const { environments, packages } = useOutletContext<ApplicationConfiguration>();
   const installedPackages = packages.filter((pkg) => pkg.installed);
-  const apiCount = microExecutors.reduce((total, item) => total + item.apis.length, 0);
-  const dataSourceCount = microExecutors.reduce((total, item) => total + item.dataSources.length, 0);
-  const entityCount = packages.reduce((total, pkg) => total + pkg.entities.length, 0);
+  const microExecutorCount = installedPackages.flatMap(getMicroExecutors).length;
+  const dslCount = installedPackages.flatMap(getDslComponents).length;
 
   return (
     <section aria-labelledby="dashboard-heading">
@@ -421,8 +478,8 @@ function AdministrationDashboard() {
         <span className="detail-format">Dati mock</span>
       </div>
       <p className="page-intro api-intro">
-        Panoramica dell'istanza {GRAIN_TITLE}: domini applicativi, package installati e
-        micro executor che ne erogano i servizi.
+        Panoramica dell'istanza {GRAIN_TITLE}: domini applicativi e package installati,
+        con i micro executor e i DSL che li compongono.
       </p>
 
       <dl className="capacity-list dashboard-stats">
@@ -436,11 +493,11 @@ function AdministrationDashboard() {
         </div>
         <div className="capacity-card">
           <dt>Micro executor</dt>
-          <dd><strong>{microExecutors.length}</strong> {apiCount} servizi API · {dataSourceCount} data source</dd>
+          <dd><strong>{microExecutorCount}</strong> nei package installati</dd>
         </div>
         <div className="capacity-card">
-          <dt>Entità definite dai package</dt>
-          <dd><strong>{entityCount}</strong> su {packages.length} package</dd>
+          <dt>DSL</dt>
+          <dd><strong>{dslCount}</strong> nei package installati</dd>
         </div>
       </dl>
     </section>
@@ -873,10 +930,14 @@ function EnvironmentLayout() {
   if (!environment) {
     return <NotFoundPage />;
   }
+  const domainPackages = environment.packages.flatMap(({ name, enabled }) => {
+    const pkg = configuration.packages.find((item) => item.name === name);
+    return pkg ? [{ pkg, enabled }] : [];
+  });
   const environmentContext: EnvironmentContext = {
     environment,
-    packages: configuration.packages.filter((pkg) => pkg.installed),
-    microExecutors: configuration.microExecutors,
+    packages: domainPackages.filter((item) => item.enabled).map((item) => item.pkg),
+    domainPackages,
   };
 
   return (
@@ -950,21 +1011,11 @@ function EnvironmentLayout() {
                 className={({ isActive }) =>
                   `sidebar-link${isActive ? " is-active" : ""}`
                 }
-                to="entita"
+                to="servizi"
                 end
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
-                Entità
-              </NavLink>
-              <NavLink
-                className={({ isActive }) =>
-                  `sidebar-link${isActive ? " is-active" : ""}`
-                }
-                to="autorizzazioni"
-                end
-              >
-                <span className="sidebar-link-marker" aria-hidden="true" />
-                Autorizzazioni
+                Servizi
               </NavLink>
               <NavLink
                 className={({ isActive }) =>
@@ -1000,24 +1051,24 @@ function MicroExecutorLayout() {
   const configuration = useOutletContext<ApplicationConfiguration>();
   const { microExecutorId } = useParams();
   const microExecutor = configuration.microExecutors.find(
-    (item) => item.id === microExecutorId,
+    (item) => item.name === microExecutorId,
   );
+  const pkg = configuration.packages.find((item) => item.name === microExecutor?.packageName);
   const [isJsonOpen, setIsJsonOpen] = useState(false);
 
-  if (!microExecutor) {
+  if (!microExecutor || !pkg) {
     return <NotFoundPage />;
   }
-  const context: MicroExecutorContext = {
-    microExecutor,
-    packages: configuration.packages.filter((pkg) => pkg.microExecutorIds.includes(microExecutor.id)),
-  };
+  const context: MicroExecutorContext = { microExecutor, pkg };
 
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
         <Link to="/">{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
-        <span>{microExecutor.id}</span>
+        <Link to={`/packages/${pkg.name}`}>{pkg.name}</Link>
+        <span aria-hidden="true">/</span>
+        <span>{microExecutor.name}</span>
       </div>
 
       <div className="environment-layout">
@@ -1027,7 +1078,7 @@ function MicroExecutorLayout() {
             aria-labelledby="micro-executor-title"
           >
             <p className="eyebrow">Micro executor</p>
-            <h1 id="micro-executor-title">{microExecutor.title}</h1>
+            <h1 id="micro-executor-title">{microExecutor.name}</h1>
             <button
               className="json-trigger"
               type="button"
@@ -1063,21 +1114,11 @@ function MicroExecutorLayout() {
                 className={({ isActive }) =>
                   `sidebar-link${isActive ? " is-active" : ""}`
                 }
-                to="api"
+                to="servizi"
                 end
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Servizi
-              </NavLink>
-              <NavLink
-                className={({ isActive }) =>
-                  `sidebar-link${isActive ? " is-active" : ""}`
-                }
-                to="data-sources"
-                end
-              >
-                <span className="sidebar-link-marker" aria-hidden="true" />
-                Data sources
               </NavLink>
             </nav>
           </div>
@@ -1089,8 +1130,8 @@ function MicroExecutorLayout() {
       </div>
       {isJsonOpen && (
         <JsonDialog
-          title={microExecutor.title}
-          id={microExecutor.id}
+          title={microExecutor.name}
+          id={microExecutor.packageName}
           value={microExecutor}
           onClose={() => setIsJsonOpen(false)}
         />
@@ -1152,7 +1193,7 @@ function JsonDialog({ title, id, value, onClose }: JsonDialogProps) {
 }
 
 function EnvironmentDetail() {
-  const { environment } = useOutletContext<EnvironmentContext>();
+  const { environment, domainPackages } = useOutletContext<EnvironmentContext>();
 
   return (
     <section className="detail-view" aria-labelledby="detail-heading">
@@ -1177,6 +1218,25 @@ function EnvironmentDetail() {
           <dt>Description</dt>
           <dd className="detail-value detail-description">
             {environment.description}
+          </dd>
+        </div>
+        <div className="detail-row">
+          <dt>Packages</dt>
+          <dd className="detail-value">
+            {domainPackages.length === 0 ? (
+              "Nessun package associato"
+            ) : (
+              <ul className="domain-package-list">
+                {domainPackages.map(({ pkg, enabled }) => (
+                  <li key={pkg.name}>
+                    <Link to={`/packages/${pkg.name}`}>{pkg.description}</Link>
+                    <span className={`config-status${enabled ? " is-active" : ""}`}>
+                      {enabled ? "Attivo" : "Disattivato"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </dd>
         </div>
       </dl>
@@ -1312,11 +1372,11 @@ function EnvironmentHealthCheck() {
       ) : (
         <ul className="health-list" aria-label="Stato dei package">
           {rows.map(({ pkg, health }) => (
-            <li className="health-card" key={pkg.id}>
+            <li className="health-card" key={pkg.name}>
               <div className="health-card-heading">
                 <div>
-                  <span className="environment-id">{pkg.id}</span>
-                  <h3><Link to={`/packages/${pkg.id}`}>{pkg.title}</Link></h3>
+                  <span className="environment-id">{pkg.name}</span>
+                  <h3><Link to={`/packages/${pkg.name}`}>{pkg.description}</Link></h3>
                 </div>
                 <span className={`health-status is-${health.status}`}>
                   {health.status === "healthy" ? "Viva" : health.status === "error" ? "In errore" : "Non disponibile"}
@@ -1336,130 +1396,60 @@ function EnvironmentHealthCheck() {
   );
 }
 
-function EnvironmentAuthorizations() {
-  const { environment } = useOutletContext<EnvironmentContext>();
-  const { authorizations } = environment;
-
-  return (
-    <section aria-labelledby="authorizations-heading">
-      <div className="detail-heading">
-        <div>
-          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
-          <h2 id="authorizations-heading">Autorizzazioni</h2>
-        </div>
-        <span className="detail-format">
-          {authorizations.length} {authorizations.length === 1 ? "autorizzazione" : "autorizzazioni"}
-        </span>
-      </div>
-      <p className="page-intro api-intro">
-        Regole di autorizzazione definite nella configurazione del dominio.
-        Ogni chiave può essere consentita o negata.
-      </p>
-      {authorizations.length === 0 ? (
-        <p className="page-intro">Nessuna autorizzazione configurata.</p>
-      ) : (
-        <ul className="authorization-list" aria-label="Autorizzazioni configurate">
-          {authorizations.map((authorization, index) => (
-            <li key={`${index}-${authorization.key}`}>
-              <code>{authorization.key}</code>
-              <span className={`authorization-status${authorization.allowed ? " is-allowed" : " is-denied"}`}>
-                {authorization.allowed ? "Consentita" : "Negata"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <section className="analysis-comparison" aria-labelledby="authorization-formats-heading">
-        <h3 id="authorization-formats-heading">Livelli e formati</h3>
-        <div className="analysis-table-wrap" role="region" aria-label="Formati delle autorizzazioni" tabIndex={0}>
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Livello</th>
-                <th scope="col">Formato</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">Intero dominio</th>
-                <td><code>*</code></td>
-              </tr>
-              <tr>
-                <th scope="row">Package</th>
-                <td><code>{"<id_package>"}</code></td>
-              </tr>
-              <tr>
-                <th scope="row">Servizio</th>
-                <td><code>{"<id_package>.<id_servizio>"}</code></td>
-              </tr>
-              <tr>
-                <th scope="row">Funzione o metodo</th>
-                <td><code>{"<id_package>.<id_servizio>-<funzione-metodo>"}</code></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-      <p className="analysis-note">
-        I valori sono esempi consultabili in sola lettura: le regole consentite
-        e negate possono rappresentare rispettivamente whitelist e blacklist.
-        La POC non verifica né applica queste autorizzazioni e non definisce
-        precedenza o comportamento predefinito; i nomi delle funzioni sono
-        illustrativi.
-      </p>
-    </section>
-  );
-}
-
 const jsonSchemaDialect = "https://json-schema.org/draft/2020-12/schema";
 
-function getExecutorPackageSchema(microExecutor: MicroExecutor, packageId: string): JsonSchema {
-  const schema = microExecutor.packageConfigurationSchemas[packageId];
-  if (!schema) {
-    throw new Error(`Schema mancante per il package ${packageId} nel micro executor ${microExecutor.id}.`);
-  }
-  return schema;
-}
+const configurationScopeLabels: Record<keyof MicroExecutorConfigurationSchemas, string> = {
+  instance: "Istanza",
+  applicativeDomain: "Dominio applicativo",
+};
 
-function getPackageSchema(pkg: Package, microExecutors: MicroExecutor[]): JsonSchema | null {
-  if (pkg.microExecutorIds.length === 0) {
-    return null;
-  }
-  const fragments = pkg.microExecutorIds.map((id) => {
-    const microExecutor = microExecutors.find((item) => item.id === id);
-    if (!microExecutor) {
-      throw new Error(`Micro executor ${id} non trovato per il package ${pkg.id}.`);
-    }
-    return getExecutorPackageSchema(microExecutor, pkg.id);
-  });
-  return {
-    $schema: jsonSchemaDialect,
-    title: pkg.title,
-    allOf: fragments,
-  };
+type ConfigurationEntry = {
+  key: string;
+  label: string;
+  title: string;
+  scope: keyof MicroExecutorConfigurationSchemas;
+  schema: JsonSchema | null;
+  configuration?: PackageConfigurationValues;
+};
+
+function getConfigurationEntries(
+  microExecutors: MicroExecutor[],
+  scopes: (keyof MicroExecutorConfigurationSchemas)[] = ["instance", "applicativeDomain"],
+): ConfigurationEntry[] {
+  return microExecutors.flatMap((microExecutor) =>
+    scopes.map((scope) => {
+      const schema = microExecutor.configuration?.[scope];
+      return {
+        key: `${microExecutor.name}-${scope}`,
+        label: microExecutor.name,
+        title: configurationScopeLabels[scope],
+        scope,
+        schema: schema ? { $schema: jsonSchemaDialect, ...schema } : null,
+      };
+    }),
+  );
 }
 
 function ConfigurationSchemas({
   entries,
   showValues = false,
 }: {
-  entries: { pkg: Package; schema: JsonSchema | null; configuration?: PackageConfigurationValues }[];
+  entries: ConfigurationEntry[];
   showValues?: boolean;
 }) {
   if (entries.length === 0) {
-    return <p className="page-intro">Nessun package associato.</p>;
+    return <p className="page-intro">Nessun micro executor configurabile.</p>;
   }
   return (
     <div className="configuration-schema-list">
-      {entries.map(({ pkg, schema, configuration }) => (
-        <section className="configuration-schema" key={pkg.id} aria-labelledby={`schema-${pkg.id}`}>
+      {entries.map(({ key, label, title, schema, configuration }) => (
+        <section className="configuration-schema" key={key} aria-labelledby={`schema-${key}`}>
           <div className="configuration-schema-heading">
             <div>
-              <span className="environment-id">{pkg.id}</span>
-              <h3 id={`schema-${pkg.id}`}>{pkg.title}</h3>
+              <h3 className="environment-id" id={`schema-${key}`}>{label}</h3>
             </div>
             <div className="configuration-schema-tags">
-              {showValues && (
+              {showValues && schema && (
                 <span className={`config-status${configuration ? " is-active" : ""}`}>
                   {configuration ? "Configurata" : "Non configurata"}
                 </span>
@@ -1469,7 +1459,7 @@ function ConfigurationSchemas({
           {schema ? (
             <SchemaProperties
               schema={schema}
-              title={pkg.title}
+              title={`${label} ${title}`}
               values={showValues ? { configuration } : undefined}
             />
           ) : (
@@ -1543,8 +1533,68 @@ function SchemaProperties({
   );
 }
 
+function EnvironmentServices() {
+  const { environment, packages } = useOutletContext<EnvironmentContext>();
+  const rows = packages.flatMap((pkg) =>
+    getMicroExecutors(pkg).flatMap((microExecutor) =>
+      (microExecutor.services ?? []).map((service) => ({ pkg, microExecutor, service })),
+    ),
+  );
+
+  return (
+    <section aria-labelledby="environment-services-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="environment-services-heading">Servizi</h2>
+        </div>
+        <span className="detail-format">{rows.length} servizi</span>
+      </div>
+      <p className="page-intro api-intro">
+        Servizi esposti dai micro executor dei package installati, disponibili nel dominio.
+      </p>
+      {rows.length === 0 ? (
+        <p className="page-intro">Nessun servizio disponibile.</p>
+      ) : (
+        <div className="api-list">
+          {rows.map(({ pkg, microExecutor, service }) => (
+            <dl className="api-row" key={`${microExecutor.name}-${service.id}`}>
+              <div>
+                <dt>ID</dt>
+                <dd className="detail-value detail-id">{service.id}</dd>
+              </div>
+              <div>
+                <dt>Descrizione</dt>
+                <dd className="detail-value">{service.description}</dd>
+              </div>
+              <div>
+                <dt>Micro executor</dt>
+                <dd className="detail-value">
+                  <Link className="data-source-owner" to={`/micro-executors/${microExecutor.name}/servizi`}>
+                    {microExecutor.name}
+                  </Link>
+                </dd>
+                <dd className="detail-value api-executor-id">{pkg.name}</dd>
+              </div>
+            </dl>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function EnvironmentConfigurationPage() {
-  const { environment, packages, microExecutors } = useOutletContext<EnvironmentContext>();
+  const { environment, packages } = useOutletContext<EnvironmentContext>();
+  const entries = packages.flatMap((pkg) =>
+    getConfigurationEntries(getMicroExecutors(pkg), ["applicativeDomain"])
+      .filter((entry) => entry.schema)
+      .map((entry) => ({
+        ...entry,
+        label: `${pkg.name} / ${entry.label}`,
+        configuration: environment.packageConfigurations[pkg.name]?.[entry.label],
+      })),
+  );
 
   return (
     <section aria-labelledby="environment-configuration-heading">
@@ -1556,19 +1606,11 @@ function EnvironmentConfigurationPage() {
         <span className="detail-format">{packages.length} package</span>
       </div>
       <p className="page-intro api-intro">
-        Il dominio vede tutti i package installati
-        e li configura in base alle proprie esigenze. Per ogni proprietà dello
-        schema è indicato il valore impostato dal dominio. I valori sono esempi
-        mock in sola lettura.
+        Il dominio vede tutti i package installati e valorizza la configurazione
+        «dominio applicativo» dei loro micro executor. I valori sono esempi mock
+        in sola lettura.
       </p>
-      <ConfigurationSchemas
-        showValues
-        entries={packages.map((pkg) => ({
-          pkg,
-          schema: getPackageSchema(pkg, microExecutors),
-          configuration: environment.packageConfigurations[pkg.id],
-        }))}
-      />
+      <ConfigurationSchemas showValues entries={entries} />
     </section>
   );
 }
@@ -1580,113 +1622,86 @@ function PackageConfigurationPage() {
     <section aria-labelledby="package-configuration-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Package · {pkg.title}</p>
+          <p className="eyebrow">Package · {pkg.name}</p>
           <h2 id="package-configuration-heading">Configurazione</h2>
         </div>
+        <span className="detail-format">{microExecutors.length} micro executor</span>
       </div>
-      <p className="page-intro api-intro">Schema di configurazione mock in sola lettura.</p>
-      <ConfigurationSchemas entries={[{ pkg, schema: getPackageSchema(pkg, microExecutors) }]} />
+      <p className="page-intro api-intro">
+        Schemi di configurazione dei micro executor del package, a livello di
+        istanza e di dominio applicativo.
+      </p>
+      <ConfigurationScopeTabs microExecutors={microExecutors} />
     </section>
   );
 }
 
+const configurationScopes: (keyof MicroExecutorConfigurationSchemas)[] = ["instance", "applicativeDomain"];
+
+function ConfigurationScopeTabs({ microExecutors }: { microExecutors: MicroExecutor[] }) {
+  const [activeScope, setActiveScope] = useState<keyof MicroExecutorConfigurationSchemas>("instance");
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function selectByOffset(offset: number) {
+    const index = configurationScopes.indexOf(activeScope);
+    const next = (index + offset + configurationScopes.length) % configurationScopes.length;
+    setActiveScope(configurationScopes[next]);
+    tabRefs.current[next]?.focus();
+  }
+
+  return (
+    <>
+      <div className="config-tabs" role="tablist" aria-label="Livello di configurazione">
+        {configurationScopes.map((scope, index) => (
+          <button
+            key={scope}
+            ref={(element) => {
+              tabRefs.current[index] = element;
+            }}
+            className={`config-tab${activeScope === scope ? " is-active" : ""}`}
+            type="button"
+            role="tab"
+            id={`config-tab-${scope}`}
+            aria-selected={activeScope === scope}
+            aria-controls={`config-panel-${scope}`}
+            tabIndex={activeScope === scope ? 0 : -1}
+            onClick={() => setActiveScope(scope)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight") selectByOffset(1);
+              if (event.key === "ArrowLeft") selectByOffset(-1);
+            }}
+          >
+            {configurationScopeLabels[scope]}
+          </button>
+        ))}
+      </div>
+      <div
+        role="tabpanel"
+        id={`config-panel-${activeScope}`}
+        aria-labelledby={`config-tab-${activeScope}`}
+      >
+        <ConfigurationSchemas entries={getConfigurationEntries(microExecutors, [activeScope])} />
+      </div>
+    </>
+  );
+}
+
 function MicroExecutorConfigurationPage() {
-  const { microExecutor, packages } = useOutletContext<MicroExecutorContext>();
+  const { microExecutor } = useOutletContext<MicroExecutorContext>();
 
   return (
     <section aria-labelledby="executor-configuration-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Micro executor · {microExecutor.title}</p>
+          <p className="eyebrow">Micro executor · {microExecutor.name}</p>
           <h2 id="executor-configuration-heading">Configurazione</h2>
         </div>
-        <span className="detail-format">{packages.length} package</span>
       </div>
       <p className="page-intro api-intro">
-        Schemi mock in sola lettura definiti da questo micro executor per ogni package.
+        Schemi di configurazione del micro executor a livello di istanza e di
+        dominio applicativo.
       </p>
-      <ConfigurationSchemas entries={packages.map((pkg) => ({
-        pkg,
-        schema: { $schema: jsonSchemaDialect, ...getExecutorPackageSchema(microExecutor, pkg.id) },
-      }))} />
-    </section>
-  );
-}
-
-function EntitiesTable({ packages, linkToPackage = false }: { packages: Package[]; linkToPackage?: boolean }) {
-  const rows = collectPackageEntities(packages);
-
-  if (rows.length === 0) {
-    return <p className="page-intro">Nessuna entità definita.</p>;
-  }
-
-  return (
-    <div className="entities-table-wrap" role="region" aria-label="Elenco delle entità" tabIndex={0}>
-      <table className="entities-table">
-        <thead>
-          <tr>
-            <th scope="col">ID</th>
-            <th scope="col">Descrizione</th>
-            <th scope="col">Package di riferimento</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ entity, pkg }) => (
-            <tr key={JSON.stringify([pkg.id, entity.id])}>
-              <th scope="row"><code>{entity.id}</code></th>
-              <td>{entity.description}</td>
-              <td>
-                {linkToPackage ? (
-                  <Link to={`/packages/${pkg.id}/entita`}>{pkg.title}</Link>
-                ) : pkg.title}
-                <span className="entities-package-id">{pkg.id}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function EnvironmentEntities() {
-  const { environment, packages } = useOutletContext<EnvironmentContext>();
-  const count = collectPackageEntities(packages).length;
-
-  return (
-    <section aria-labelledby="environment-entities-heading">
-      <div className="detail-heading">
-        <div>
-          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
-          <h2 id="environment-entities-heading">Entità</h2>
-        </div>
-        <span className="detail-format">{count} entità</span>
-      </div>
-      <p className="page-intro api-intro">
-        Entità dei package installati, visibili dal dominio.
-        I dati sono esempi mock in sola lettura.
-      </p>
-      <EntitiesTable packages={packages} linkToPackage />
-    </section>
-  );
-}
-
-function PackageEntities() {
-  const { pkg } = useOutletContext<PackageContext>();
-
-  return (
-    <section aria-labelledby="package-entities-heading">
-      <div className="detail-heading">
-        <div>
-          <p className="eyebrow">Package · {pkg.title}</p>
-          <h2 id="package-entities-heading">Entità</h2>
-        </div>
-        <span className="detail-format">{pkg.entities.length} entità</span>
-      </div>
-      <p className="page-intro api-intro">
-        Entità di cui è responsabile questo package. I dati sono esempi mock in sola lettura.
-      </p>
-      <EntitiesTable packages={[pkg]} />
+      <ConfigurationScopeTabs microExecutors={[microExecutor]} />
     </section>
   );
 }
@@ -1708,8 +1723,8 @@ function AdministrationPackages() {
         </div>
       </div>
       <p className="page-intro api-intro">
-        Package installati su {GRAIN_TITLE}. Ogni package raggruppa uno o più
-        micro executor ed è disponibile in tutti i domini applicativi, che lo
+        Package installati su {GRAIN_TITLE}. Ogni package raggruppa DSL e micro
+        executor ed è disponibile in tutti i domini applicativi, che lo
         configurano in base alle proprie esigenze.
       </p>
       {installedPackages.length === 0 ? (
@@ -1717,7 +1732,7 @@ function AdministrationPackages() {
       ) : (
         <div className="micro-executor-list">
           {installedPackages.map((pkg) => (
-            <PackageCard key={pkg.id} pkg={pkg} />
+            <PackageCard key={pkg.name} pkg={pkg} />
           ))}
         </div>
       )}
@@ -1748,7 +1763,7 @@ function PackageStore() {
       ) : (
         <div className="micro-executor-list">
           {packages.map((pkg) => (
-            <PackageCard key={pkg.id} pkg={pkg} showStatus />
+            <PackageCard key={pkg.name} pkg={pkg} showStatus />
           ))}
         </div>
       )}
@@ -1766,21 +1781,21 @@ function InstallationStatus({ installed }: { installed: boolean }) {
 
 function PackageCard({ pkg, showStatus = false }: { pkg: Package; showStatus?: boolean }) {
   return (
-    <Link className="micro-executor-card" to={`/packages/${pkg.id}`}>
+    <Link className="micro-executor-card" to={`/packages/${pkg.name}`}>
       <div className="micro-executor-card-top">
-        <span className="environment-id">{pkg.id}</span>
+        <span className="environment-id">{pkg.name}</span>
         {showStatus ? (
           <InstallationStatus installed={pkg.installed} />
         ) : (
-          <span className="micro-executor-api-count">
-            {pkg.microExecutorIds.length} micro executor
-          </span>
+          <span className="micro-executor-api-count">v{pkg.version}</span>
         )}
       </div>
-      <h3>{pkg.title}</h3>
-      <p>{pkg.description}</p>
+      <h3>{pkg.description}</h3>
+      <p>
+        {pkg.publisher} · {getMicroExecutors(pkg).length} micro executor · {getDslComponents(pkg).length} DSL
+      </p>
       <div className="micro-executor-card-action">
-        <span>Package</span>
+        <span>Package v{pkg.version}</span>
         <span>Apri <span aria-hidden="true">-&gt;</span></span>
       </div>
     </Link>
@@ -1790,34 +1805,31 @@ function PackageCard({ pkg, showStatus = false }: { pkg: Package; showStatus?: b
 function PackageLayout() {
   const configuration = useOutletContext<ApplicationConfiguration>();
   const { packageId } = useParams();
-  const pkg = configuration.packages.find((item) => item.id === packageId);
+  const pkg = configuration.packages.find((item) => item.name === packageId);
   const [isJsonOpen, setIsJsonOpen] = useState(false);
 
   if (!pkg) {
     return <NotFoundPage />;
   }
 
-  const microExecutors = pkg.microExecutorIds.map((id) => {
-    const microExecutor = configuration.microExecutors.find((item) => item.id === id);
-    if (!microExecutor) {
-      throw new Error(`Micro executor ${id} non trovato per il package ${pkg.id}.`);
-    }
-    return microExecutor;
-  });
-  const context: PackageContext = { pkg, microExecutors };
+  const context: PackageContext = { pkg, microExecutors: getMicroExecutors(pkg) };
+  const { installed, ...manifest } = pkg;
+  void installed;
 
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
         <Link to="/">{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
-        <span>{pkg.id}</span>
+        <Link to="/packages">Packages</Link>
+        <span aria-hidden="true">/</span>
+        <span>{pkg.name}</span>
       </div>
       <div className="environment-layout">
         <aside className="environment-sidebar" aria-label="Menu package">
           <section className="environment-summary-card" aria-labelledby="package-title">
-            <p className="eyebrow">Package</p>
-            <h1 id="package-title">{pkg.title}</h1>
+            <p className="eyebrow">Package · v{pkg.version}</p>
+            <h1 id="package-title">{pkg.description}</h1>
             <button className="json-trigger" type="button" onClick={() => setIsJsonOpen(true)}>
               Mostra JSON
             </button>
@@ -1833,17 +1845,13 @@ function PackageLayout() {
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Configurazione
               </NavLink>
-              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="entita" end>
-                <span className="sidebar-link-marker" aria-hidden="true" />
-                Entità
-              </NavLink>
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="micro-executors" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Micro executors
               </NavLink>
-              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="servizi" end>
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="dsl" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
-                Servizi
+                DSL
               </NavLink>
             </nav>
           </div>
@@ -1853,11 +1861,17 @@ function PackageLayout() {
         </div>
       </div>
       {isJsonOpen && (
-        <JsonDialog title={pkg.title} id={pkg.id} value={pkg} onClose={() => setIsJsonOpen(false)} />
+        <JsonDialog title={pkg.description} id={pkg.name} value={manifest} onClose={() => setIsJsonOpen(false)} />
       )}
     </main>
   );
 }
+
+const publishedAtFormat = new Intl.DateTimeFormat("it-IT", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "UTC",
+});
 
 function PackageDetail() {
   const { pkg } = useOutletContext<PackageContext>();
@@ -1866,22 +1880,35 @@ function PackageDetail() {
     <section className="detail-view" aria-labelledby="package-detail-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Anagrafica package</p>
+          <p className="eyebrow">Manifest package</p>
           <h2 id="package-detail-heading">Dettaglio</h2>
         </div>
+        <span className="detail-format">{pkg.components.length} componenti</span>
       </div>
       <dl className="detail-list">
         <div className="detail-row">
-          <dt>ID</dt>
-          <dd className="detail-value detail-id">{pkg.id}</dd>
+          <dt>Nome</dt>
+          <dd className="detail-value detail-id">{pkg.name}</dd>
         </div>
         <div className="detail-row">
-          <dt>Titolo</dt>
-          <dd className="detail-value">{pkg.title}</dd>
-        </div>
-        <div className="detail-row">
-          <dt>Obiettivo</dt>
+          <dt>Descrizione</dt>
           <dd className="detail-value detail-description">{pkg.description}</dd>
+        </div>
+        <div className="detail-row">
+          <dt>Versione</dt>
+          <dd className="detail-value"><code>{pkg.version}</code></dd>
+        </div>
+        <div className="detail-row">
+          <dt>Versione Grain</dt>
+          <dd className="detail-value"><code>{pkg.grainVersion}</code></dd>
+        </div>
+        <div className="detail-row">
+          <dt>Publisher</dt>
+          <dd className="detail-value">{pkg.publisher}</dd>
+        </div>
+        <div className="detail-row">
+          <dt>Pubblicato il</dt>
+          <dd className="detail-value">{publishedAtFormat.format(new Date(pkg.publishedAt))} UTC</dd>
         </div>
         <div className="detail-row">
           <dt>Stato</dt>
@@ -1892,45 +1919,43 @@ function PackageDetail() {
   );
 }
 
-function PackageServices() {
-  const { pkg, microExecutors } = useOutletContext<PackageContext>();
-  const apis = microExecutors.flatMap((microExecutor) =>
-    microExecutor.apis.filter((api) => api.packageIds.includes(pkg.id)),
-  );
+function PackageDsl() {
+  const { pkg } = useOutletContext<PackageContext>();
+  const dsls = getDslComponents(pkg);
 
   return (
-    <section aria-labelledby="package-services-heading">
+    <section aria-labelledby="package-dsl-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Package · {pkg.title}</p>
-          <h2 id="package-services-heading">Servizi</h2>
+          <p className="eyebrow">Package · {pkg.name}</p>
+          <h2 id="package-dsl-heading">DSL</h2>
         </div>
-        <span className="detail-format">{apis.length} servizi</span>
+        <span className="detail-format">{dsls.length} DSL</span>
       </div>
       <p className="page-intro api-intro">
-        Servizi esplicitamente associati a questo package nei micro executor.
+        Componenti DSL del package, con repository e riferimento della versione.
       </p>
-      {apis.length === 0 ? (
-        <p className="page-intro">Nessun servizio associato.</p>
+      {dsls.length === 0 ? (
+        <p className="page-intro">Nessun DSL nel package.</p>
       ) : (
         <div className="api-list">
-          {apis.map((api) => (
-            <dl className="api-row" key={`${api.microExecutorId}-${api.id}`}>
+          {dsls.map((dsl) => (
+            <dl className="api-row" key={dsl.name}>
               <div>
-                <dt>ID</dt>
-                <dd className="detail-value detail-id">{api.id}</dd>
+                <dt>Nome</dt>
+                <dd className="detail-value detail-id">{dsl.name}</dd>
               </div>
               <div>
-                <dt>Descrizione</dt>
-                <dd className="detail-value">{api.description}</dd>
-              </div>
-              <div>
-                <dt>Micro executor</dt>
-                <dd className="detail-value api-executor-id">
-                  <Link className="data-source-owner" to={`/micro-executors/${api.microExecutorId}/api`}>
-                    {api.microExecutorId}
-                  </Link>
+                <dt>Repository</dt>
+                <dd className="detail-value">
+                  <a className="data-source-owner" href={dsl.repository} target="_blank" rel="noreferrer">
+                    {dsl.repository}
+                  </a>
                 </dd>
+              </div>
+              <div>
+                <dt>Ref</dt>
+                <dd className="detail-value"><code>{dsl.ref}</code></dd>
               </div>
             </dl>
           ))}
@@ -1940,6 +1965,11 @@ function PackageServices() {
   );
 }
 
+function getImageTag(image: string) {
+  const separator = image.lastIndexOf(":");
+  return separator > image.lastIndexOf("/") ? image.slice(separator + 1) : "latest";
+}
+
 function PackageMicroExecutors() {
   const { pkg, microExecutors } = useOutletContext<PackageContext>();
 
@@ -1947,32 +1977,36 @@ function PackageMicroExecutors() {
     <section aria-labelledby="package-executors-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Package · {pkg.title}</p>
+          <p className="eyebrow">Package · {pkg.name}</p>
           <h2 id="package-executors-heading">Micro executors</h2>
         </div>
         <span className="detail-format">{microExecutors.length} micro executor</span>
       </div>
       <p className="page-intro api-intro">
-        Micro executor associati a questo package.
+        Micro executor definiti nel package, con l'immagine container da eseguire.
       </p>
       {microExecutors.length === 0 ? (
-        <p className="page-intro">Nessun micro executor associato.</p>
+        <p className="page-intro">Nessun micro executor nel package.</p>
       ) : (
         <div className="micro-executor-list">
           {microExecutors.map((microExecutor) => (
             <Link
               className="micro-executor-card"
-              key={microExecutor.id}
-              to={`/micro-executors/${microExecutor.id}`}
+              key={microExecutor.name}
+              to={`/micro-executors/${microExecutor.name}`}
             >
               <div className="micro-executor-card-top">
-                <span className="environment-id">{microExecutor.id}</span>
-                <span className="micro-executor-api-count">{microExecutor.apis.length} servizi</span>
+                <span className="environment-id">{microExecutor.name}</span>
+                <span className="micro-executor-api-count">{getImageTag(microExecutor.image)}</span>
               </div>
-              <h3>{microExecutor.title}</h3>
-              <p>{microExecutor.description}</p>
+              <h3>{microExecutor.name}</h3>
+              <p className="micro-executor-url">{microExecutor.image}</p>
               <div className="micro-executor-card-action">
-                <span className="micro-executor-url">{microExecutor.url}</span>
+                <span>
+                  {microExecutor.configuration
+                    ? Object.keys(microExecutor.configuration).map((scope) => configurationScopeLabels[scope as keyof MicroExecutorConfigurationSchemas] ?? scope).join(" · ")
+                    : "Nessuna configurazione"}
+                </span>
                 <span>Apri <span aria-hidden="true">-&gt;</span></span>
               </div>
             </Link>
@@ -1983,83 +2017,35 @@ function PackageMicroExecutors() {
   );
 }
 
-function MicroExecutorDetail() {
+function MicroExecutorServices() {
   const { microExecutor } = useOutletContext<MicroExecutorContext>();
+  const services = microExecutor.services ?? [];
 
   return (
-    <section
-      className="detail-view"
-      aria-labelledby="micro-executor-detail-heading"
-    >
+    <section aria-labelledby="micro-executor-services-heading">
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Configurazione micro executor</p>
-          <h2 id="micro-executor-detail-heading">Dettaglio</h2>
+          <p className="eyebrow">Micro executor · {microExecutor.name}</p>
+          <h2 id="micro-executor-services-heading">Servizi</h2>
         </div>
-        <span className="detail-format">{microExecutor.apis.length} servizi</span>
+        <span className="detail-format">{services.length} servizi</span>
       </div>
-      <dl className="detail-list">
-        <div className="detail-row">
-          <dt>ID</dt>
-          <dd className="detail-value detail-id">{microExecutor.id}</dd>
-        </div>
-        <div className="detail-row">
-          <dt>Title</dt>
-          <dd className="detail-value">{microExecutor.title}</dd>
-        </div>
-        <div className="detail-row">
-          <dt>Description</dt>
-          <dd className="detail-value detail-description">
-            {microExecutor.description}
-          </dd>
-        </div>
-        <div className="detail-row">
-          <dt>URL</dt>
-          <dd className="detail-value micro-executor-url">
-            {microExecutor.url}
-          </dd>
-        </div>
-      </dl>
-    </section>
-  );
-}
-
-function MicroExecutorApis() {
-  const { microExecutor } = useOutletContext<MicroExecutorContext>();
-
-  return (
-    <section
-      className="micro-executor-apis"
-      aria-labelledby="micro-executor-api-heading"
-    >
-      <div className="detail-heading">
-        <div>
-          <p className="eyebrow">Servizi associati</p>
-          <h2 id="micro-executor-api-heading">Servizi</h2>
-        </div>
-        <span className="detail-format">
-          {String(microExecutor.apis.length).padStart(2, "0")} servizi
-        </span>
-      </div>
-      {microExecutor.apis.length === 0 ? (
-        <p className="page-intro">Nessun servizio associato.</p>
+      <p className="page-intro api-intro">
+        API esposte da questo micro executor.
+      </p>
+      {services.length === 0 ? (
+        <p className="page-intro">Nessun servizio definito.</p>
       ) : (
         <div className="api-list">
-          {microExecutor.apis.map((api) => (
-            <dl className="api-row" key={api.id}>
+          {services.map((service) => (
+            <dl className="api-row service-row" key={service.id}>
               <div>
                 <dt>ID</dt>
-                <dd className="detail-value detail-id">{api.id}</dd>
+                <dd className="detail-value detail-id">{service.id}</dd>
               </div>
               <div>
                 <dt>Descrizione</dt>
-                <dd className="detail-value">{api.description}</dd>
-              </div>
-              <div>
-                <dt>Micro executor</dt>
-                <dd className="detail-value api-executor-id">
-                  {api.microExecutorId}
-                </dd>
+                <dd className="detail-value">{service.description}</dd>
               </div>
             </dl>
           ))}
@@ -2069,69 +2055,37 @@ function MicroExecutorApis() {
   );
 }
 
-function DataSourcesList({
-  microExecutors,
-}: {
-  microExecutors: MicroExecutor[];
-}) {
-  const entries = microExecutors.flatMap((microExecutor) =>
-    microExecutor.dataSources.map((dataSource) => ({
-      dataSource,
-      microExecutor,
-    })),
-  );
-
-  if (entries.length === 0) {
-    return <p className="page-intro">Nessun data source associato.</p>;
-  }
+function MicroExecutorDetail() {
+  const { microExecutor, pkg } = useOutletContext<MicroExecutorContext>();
 
   return (
-    <div className="api-list">
-      {entries.map(({ dataSource, microExecutor }) => (
-        <dl className="api-row" key={`${microExecutor.id}-${dataSource.id}`}>
-          <div>
-            <dt>Data source</dt>
-            <dd className="detail-value">{dataSource.title}</dd>
-            <dd className="detail-value detail-id">{dataSource.id}</dd>
-          </div>
-          <div>
-            <dt>Tipo</dt>
-            <dd className="detail-value">{dataSource.type}</dd>
-            <dd className="detail-value">{dataSource.description}</dd>
-          </div>
-          <div>
-            <dt>Micro executor responsabile</dt>
-            <dd className="detail-value">
-              <Link
-                className="data-source-owner"
-                to={`/micro-executors/${microExecutor.id}/data-sources`}
-              >
-                {microExecutor.title}
-              </Link>
-            </dd>
-            <dd className="detail-value api-executor-id">{microExecutor.id}</dd>
-          </div>
-        </dl>
-      ))}
-    </div>
-  );
-}
-
-function MicroExecutorDataSources() {
-  const { microExecutor } = useOutletContext<MicroExecutorContext>();
-
-  return (
-    <section aria-labelledby="data-sources-heading">
+    <section
+      className="detail-view"
+      aria-labelledby="micro-executor-detail-heading"
+    >
       <div className="detail-heading">
         <div>
-          <p className="eyebrow">Configurazione micro executor</p>
-          <h2 id="data-sources-heading">Data sources</h2>
+          <p className="eyebrow">Micro executor</p>
+          <h2 id="micro-executor-detail-heading">Dettaglio</h2>
         </div>
+        <span className="detail-format">{getImageTag(microExecutor.image)}</span>
       </div>
-      <p className="page-intro api-intro">
-        Data source di cui {microExecutor.title} &egrave; responsabile.
-      </p>
-      <DataSourcesList microExecutors={[microExecutor]} />
+      <dl className="detail-list">
+        <div className="detail-row">
+          <dt>Nome</dt>
+          <dd className="detail-value detail-id">{microExecutor.name}</dd>
+        </div>
+        <div className="detail-row">
+          <dt>Package</dt>
+          <dd className="detail-value">
+            <Link to={`/packages/${pkg.name}`}>{pkg.description}</Link>
+          </dd>
+        </div>
+        <div className="detail-row">
+          <dt>Immagine</dt>
+          <dd className="detail-value micro-executor-url">{microExecutor.image}</dd>
+        </div>
+      </dl>
     </section>
   );
 }
@@ -2331,9 +2285,8 @@ const router = createBrowserRouter(
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <PackageDetail /> },
             { path: "configurazione", element: <PackageConfigurationPage /> },
-            { path: "entita", element: <PackageEntities /> },
             { path: "micro-executors", element: <PackageMicroExecutors /> },
-            { path: "servizi", element: <PackageServices /> },
+            { path: "dsl", element: <PackageDsl /> },
           ],
         },
         {
@@ -2343,8 +2296,7 @@ const router = createBrowserRouter(
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <MicroExecutorDetail /> },
             { path: "configurazione", element: <MicroExecutorConfigurationPage /> },
-            { path: "api", element: <MicroExecutorApis /> },
-            { path: "data-sources", element: <MicroExecutorDataSources /> },
+            { path: "servizi", element: <MicroExecutorServices /> },
           ],
         },
         {
@@ -2354,10 +2306,9 @@ const router = createBrowserRouter(
             { index: true, element: <Navigate to="dettaglio" replace /> },
             { path: "dettaglio", element: <EnvironmentDetail /> },
             { path: "configurazione", element: <EnvironmentConfigurationPage /> },
+            { path: "servizi", element: <EnvironmentServices /> },
             { path: "health-check", loader: loadHealthChecks, element: <EnvironmentHealthCheck />, errorElement: <DomainMockDataError title="Health check" /> },
             { path: "capacita-limiti", loader: loadDomainCapacities, element: <EnvironmentCapacity />, errorElement: <DomainMockDataError title="Capacità e limiti" /> },
-            { path: "entita", element: <EnvironmentEntities /> },
-            { path: "autorizzazioni", element: <EnvironmentAuthorizations /> },
             {
               path: "ui-personalizzazione",
               element: <UiPersonalizationPage />,

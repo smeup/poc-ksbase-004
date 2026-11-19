@@ -569,50 +569,6 @@
   font-size: 15px;
 }
 
-.authorization-list {
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--line-strong);
-  list-style: none;
-}
-
-.authorization-list li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  padding: 14px 4px;
-  border-bottom: 1px solid var(--line);
-  color: var(--ink-soft);
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-
-.authorization-list code {
-  font-family: var(--mono);
-}
-
-.authorization-status {
-  padding: 4px 8px;
-  border: 1px solid;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.authorization-status.is-allowed {
-  border-color: var(--status);
-  color: #306653;
-  background: #edf5f1;
-}
-
-.authorization-status.is-denied {
-  border-color: var(--accent-border);
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
 .health-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -757,6 +713,55 @@
   font-family: var(--serif);
   font-size: 26px;
   font-weight: 400;
+}
+
+.domain-package-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.domain-package-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.config-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.config-tab {
+  margin-bottom: -1px;
+  padding: 10px 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.config-tab:hover {
+  color: var(--ink);
+}
+
+.config-tab.is-active {
+  border-bottom-color: var(--accent);
+  color: var(--accent);
+}
+
+.config-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .dashboard-stats {
@@ -905,11 +910,7 @@
 }
 
 .configuration-schema-heading h3 {
-  margin: 10px 0 0;
-  color: var(--ink);
-  font-family: var(--serif);
-  font-size: 20px;
-  font-weight: 400;
+  margin: 0;
 }
 
 .configuration-properties-wrap {
@@ -1141,6 +1142,10 @@
 
 .api-row {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.4fr);
+}
+
+.api-row.service-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.55fr);
 }
 
 .api-row > div {

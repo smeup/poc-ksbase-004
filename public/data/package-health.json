@@ -1,11 +1,9 @@
 {
   "schemaVersion": 1,
   "checks": [
-    { "domainId": "ges_10adv", "packageId": "smeup-es", "status": "error", "reason": "Esempio: servizio di stampa temporaneamente non disponibile." },
-    { "domainId": "ges_10adv", "packageId": "holos", "status": "healthy" },
-    { "domainId": "ges_49adv", "packageId": "smeup-es", "status": "healthy" },
-    { "domainId": "ges_49adv", "packageId": "holos", "status": "error", "reason": "Esempio: connessione al servizio L64 non disponibile." },
-    { "domainId": "ges_11adv", "packageId": "smeup-es", "status": "healthy" },
-    { "domainId": "ges_11adv", "packageId": "holos", "status": "error", "reason": "Esempio: timeout verso il servizio L64." }
+    {"domainId": "ges_10adv", "packageId": "smeup-es", "status": "error", "reason": "Esempio: servizio di stampa temporaneamente non disponibile."},
+    {"domainId": "ges_49adv", "packageId": "smeup-es", "status": "healthy"},
+    {"domainId": "holos_one", "packageId": "holos", "status": "healthy"},
+    {"domainId": "holos_two", "packageId": "holos", "status": "error", "reason": "Esempio: connessione al servizio L64 non disponibile."}
   ]
 }

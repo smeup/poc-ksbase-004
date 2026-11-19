@@ -11,92 +11,62 @@ dall'amministrazione. Ogni altro percorso `/app/:id` mostra la pagina di
 fallback «Runtime dominio applicativo :id».
 
 I domini sono in `public/data/application-domains.json`: Smeup BSA
-(`ges_10adv`), Smeup LAB (`ges_49adv`) e Smeup ICS (`ges_11adv`).
+(`ges_10adv`), Smeup LAB (`ges_49adv`), Holos one
+(`holos_one`) e Holos two (`holos_two`).
 
-## Data sources
-
-I data source mock sono definiti in `public/data/micro-executors.json` nell'array
-`dataSources` del micro executor responsabile. Ogni elemento contiene `id`,
-`title`, `type` e `description` ed è visibile nella pagina del micro executor.
+Ogni dominio elenca in `packages` i package installati a cui è associato, con
+`enabled` attivo o disattivato: i domini Smeup hanno solo `smeup-es` attivo; i
+domini Holos hanno `holos` attivo e `smeup-es` disattivato. Configurazione,
+servizi e health check del dominio considerano solo i package attivi; il
+dettaglio del dominio li mostra tutti con il loro stato.
 
 ## Packages
 
-L'anagrafica mock `public/data/packages.json` contiene per ogni package `id`,
-`title`, `description`, `microExecutorIds`, `installed` ed `entities`:
+`public/data/packages.json` contiene il catalogo dei package (`packages`) e
+l'elenco dei package installati sull'istanza (`installed`). Ogni package è un
+manifest con `name`, `version`, `grainVersion`, `publisher`, `description`,
+`publishedAt` e `components`. Un componente è di tipo:
 
-| Package | ID | Micro executor | Installato |
-| --- | --- | --- | --- |
-| Smeup ES | `smeup-es` | `me-java-as400proxy`, `me-java-h53` | sì |
-| HOLOS | `holos` | `me-node-holos` | sì |
-| Smeup Multipiattaforma | `smeup-multipiattaforma` | `me-java-rpgle-std` | no |
-| Evodoc | `evodoc` | `me-java-evodoc` | no |
-| Archismall | `archismall` | `me-java-archismall` | no |
+- `dsl`: `name`, `repository`, `ref`;
+- `micro-executor`: `name`, `image` e, facoltativo, `configuration` con due
+  JSON Schema: `instance` (configurazione dell'istanza del micro executor) e
+  `applicativeDomain` (valori impostati da ogni dominio applicativo).
 
-La voce «Packages» mostra solo i package installati sull'istanza Grain
-(`installed: true`); il bottone «Package Store» apre il catalogo completo, con
-lo stato di installazione di ogni package. Lo Store è in sola lettura: non
-installa né disinstalla. Evodoc e Archismall, con i loro micro executor,
-servizi e data source, sono esempi inventati.
+I micro executor non hanno un'anagrafica separata: sono ricavati dai componenti
+dei package. I nomi dei componenti sono univoci in tutto il catalogo.
 
-Ogni dominio vede tutti i package installati e contiene solo le loro
-configurazioni (vedi «Configurazioni package del dominio»). Ogni servizio
-elenca i package a cui appartiene tramite `packageIds` in
-`public/data/micro-executors.json`: la pagina del package mostra solo questi
-servizi. La voce «Micro executors» nella pagina del package elenca quelli
-associati e permette di aprirne il dettaglio. I riferimenti a package
-inesistenti impediscono il caricamento della configurazione. Gli URL dei
-micro executor sono esempi mock.
+| Package | Nome | Micro executor | DSL | Installato |
+| --- | --- | --- | --- | --- |
+| Smeup Enterprise Suite | `smeup-es` | `me-java-as400-proxy`, `me-java-h53` | `kokos-dsl-smeupes` | sì |
+| Holos | `holos` | `me-node-holos`, `me-node-holos-rules` | `kokos-dsl-holos` | sì |
+| Smeup Enterprise Suite (multiplatform) | `smeup-es-mu` | `me-rpgle-smeuperp` | 3 DSL `kokos-dsl-smeuperp*` | no |
+
+La voce «Packages» mostra i package installati; «Package Store» il catalogo
+completo con lo stato di installazione, in sola lettura. La pagina del package
+ha le voci Dettaglio (manifest), Configurazione (schemi dei micro executor),
+Micro executors e DSL.
 
 ## Configurazioni package del dominio
 
 Ogni dominio definisce in `public/data/application-domains.json` l'oggetto
-`packageConfigurations`, indicizzato per ID package, con i valori di
-configurazione che il dominio applica a quel package secondo il suo schema. Le
-chiavi devono essere package esistenti e installati; altrimenti la configurazione non viene
-caricata. Un package senza chiave risulta «Non configurato». I valori sono esempi mock e non vengono validati rispetto allo
-schema durante il caricamento (lo fa il test `tests/package-configurations.test.mjs`).
+`packageConfigurations`, indicizzato per nome package e poi per nome micro
+executor, con i valori dello schema `applicativeDomain`. Package non associati
+al dominio o micro executor non presenti nel package impediscono il caricamento. I valori
+sono esempi mock e non vengono validati rispetto allo schema.
 
-## Entità dei package
-
-Ogni package definisce in `public/data/packages.json` l'array obbligatorio
-`entities`, con `id` e `description` per ogni entità; il package che contiene
-l'array è quello di riferimento. Gli ID sono univoci all'interno del package. Le entità presenti
-sono esempi mock, non un catalogo di responsabilità verificato.
-La voce «Entità» del package mostra il suo elenco; quella del dominio aggrega
-le entità di tutti i package, senza confondere eventuali ID uguali
-appartenenti a package diversi. Entrambe le viste
-sono in sola lettura.
-
-## Schemi di configurazione
-
-Ogni micro executor definisce in `packageConfigurationSchemas` uno schema JSON
-per ciascun package che lo utilizza, indicizzato per ID package. Gli schemi sono esempi
-mock, non la documentazione di parametri effettivi. La configurazione
-verifica che ogni associazione package/micro executor abbia uno schema e che
-non esistano riferimenti a package non associati.
-
-La voce «Configurazione» del dominio mostra in sola lettura tutti gli schemi
-di tutti i package, affiancati dai valori impostati dal dominio in
-`packageConfigurations`. La stessa vista è disponibile nel package; il micro
-executor mostra invece i propri schemi per tutti i package che lo utilizzano.
-Lo schema del package è un JSON Schema draft 2020-12 che combina i contributi
-dei suoi micro executor tramite `allOf`, senza modificarli. Le viste non
-modificano valori né applicano configurazioni. Nelle tre viste le proprietà
-esplicite sono presentate come albero con tipo e descrizione, combinando i
-contributi `allOf`; le proprietà annidate sono indentate. Gli altri vincoli
-JSON Schema non sono un editor né una rappresentazione completa dello schema:
+La voce «Configurazione» del dominio mostra, per ogni micro executor dei
+package installati con uno schema `applicativeDomain`, le proprietà e i valori
+del dominio. Le proprietà sono presentate come albero con tipo e descrizione;
 composizioni alternative, riferimenti e proprietà dinamiche non vengono
-espansi e sono segnalati nella vista.
-Per verificare l'estrazione delle proprietà, eseguire
-`node --experimental-strip-types --test tests/*.test.mjs`
-con Node.js 22.
+espansi e sono segnalati nella vista. Per eseguire i test:
+`node --experimental-strip-types --test tests/*.test.mjs` con Node.js 22.
 
 ## Health check
 
 La voce «Health check» del dominio mostra tutti i suoi package, con un riepilogo degli stati e la causa per ogni errore.
 I dati in `public/data/package-health.json` sono **simulati**: non viene
 interrogato alcun servizio e gli stati non indicano la salute reale dei package.
-Ogni record associa `domainId` e `packageId` a uno stato `healthy` oppure `error`;
+Ogni record associa `domainId` e `packageId` (nome del package) a uno stato `healthy` oppure `error`;
 per `error` è obbligatorio indicare `reason`. Un package senza record per il
 dominio compare come «Non disponibile». Dati non validi o non caricabili sono
 segnalati nella dashboard, senza impedire l'accesso alle altre pagine.

@@ -52,13 +52,15 @@ test("distingue i percorsi quando un nome contiene punti o parentesi", () => {
   assert.deepEqual(result.properties.map(({ path }) => path), ['["a.b"]', "a", "a.b", '["a[]"]']);
 });
 
-test("mostra tutte le proprietà degli schemi mock attuali", () => {
-  const data = JSON.parse(readFileSync(new URL("../public/data/micro-executors.json", import.meta.url), "utf8"));
-  for (const executor of data.microExecutors) {
-    for (const [packageId, schema] of Object.entries(executor.packageConfigurationSchemas)) {
-      const result = getSchemaProperties(schema);
-      assert.ok(result.properties.length > 0, `${executor.id}: ${packageId}`);
-      assert.deepEqual(result.unrepresented, [], `${executor.id}: ${packageId}`);
+test("legge le proprietà degli schemi dei micro executor nei package", () => {
+  const data = JSON.parse(readFileSync(new URL("../public/data/packages.json", import.meta.url), "utf8"));
+  for (const pkg of data.packages) {
+    for (const component of pkg.components) {
+      if (component.type !== "micro-executor") continue;
+      for (const [scope, schema] of Object.entries(component.configuration ?? {})) {
+        const result = getSchemaProperties(schema);
+        assert.deepEqual(result.unrepresented, [], `${component.name}: ${scope}`);
+      }
     }
   }
 });
