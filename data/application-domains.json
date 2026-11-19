@@ -5,13 +5,17 @@
       "id": "ges_10adv",
       "title": "Smeup BSA",
       "description": "Ambiente applicativo Smeup BSA.",
+      "packages": [
+        {
+          "name": "smeup-es",
+          "enabled": true
+        }
+      ],
       "packageConfigurations": {
         "smeup-es": {
-          "as400": {
-            "host": "as400-bsa.example.invalid"
-          },
-          "reporting": {
-            "defaultFormat": "pdf"
+          "me-java-as400-proxy": {
+            "as400Environment": "BSA",
+            "as400Ccsid": 280
           }
         }
       },
@@ -41,13 +45,17 @@
       "id": "ges_49adv",
       "title": "Smeup LAB",
       "description": "Ambiente applicativo Smeup LAB.",
+      "packages": [
+        {
+          "name": "smeup-es",
+          "enabled": true
+        }
+      ],
       "packageConfigurations": {
         "smeup-es": {
-          "as400": {
-            "host": "as400-lab.example.invalid"
-          },
-          "reporting": {
-            "defaultFormat": "pdf"
+          "me-java-as400-proxy": {
+            "as400Environment": "LAB",
+            "as400Ccsid": 280
           }
         }
       },
@@ -74,13 +82,25 @@
       }
     },
     {
-      "id": "ges_11adv",
-      "title": "Smeup ICS",
-      "description": "Ambiente applicativo Smeup ICS.",
+      "id": "holos_one",
+      "title": "Holos one",
+      "description": "Ambiente applicativo Holos one.",
+      "packages": [
+        {
+          "name": "holos",
+          "enabled": true
+        },
+        {
+          "name": "smeup-es",
+          "enabled": false
+        }
+      ],
       "packageConfigurations": {
-        "smeup-es": {
-          "as400": {
-            "host": "as400-ics.example.invalid"
+        "holos": {
+          "me-node-holos": {
+            "l64Server": "l64-one.example.invalid",
+            "l64User": "holos_one",
+            "l64Password": "********"
           }
         }
       },
@@ -99,10 +119,55 @@
           "numberFormat": "it-IT"
         },
         "activeLogo": {
-          "id": "ges-11adv-primary",
-          "name": "Smeup ICS",
-          "mark": "ICS",
-          "alt": "Logo Smeup ICS"
+          "id": "holos-one-primary",
+          "name": "Holos one",
+          "mark": "H1",
+          "alt": "Logo Holos one"
+        }
+      }
+    },
+    {
+      "id": "holos_two",
+      "title": "Holos two",
+      "description": "Ambiente applicativo Holos two.",
+      "packages": [
+        {
+          "name": "holos",
+          "enabled": true
+        },
+        {
+          "name": "smeup-es",
+          "enabled": false
+        }
+      ],
+      "packageConfigurations": {
+        "holos": {
+          "me-node-holos": {
+            "l64Server": "l64-two.example.invalid",
+            "l64User": "holos_two",
+            "l64Password": "********"
+          }
+        }
+      },
+      "authorizations": [],
+      "uiCustomization": {
+        "theme": {
+          "id": "default",
+          "name": "Tema predefinito",
+          "mode": "light",
+          "accent": "#a51f38"
+        },
+        "localization": {
+          "locale": "it-IT",
+          "language": "Italiano",
+          "dateFormat": "dd/MM/yyyy",
+          "numberFormat": "it-IT"
+        },
+        "activeLogo": {
+          "id": "holos-two-primary",
+          "name": "Holos two",
+          "mark": "H2",
+          "alt": "Logo Holos two"
         }
       }
     }

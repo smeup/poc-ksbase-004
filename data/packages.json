@@ -1,60 +1,239 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "installed": [
+    "smeup-es",
+    "holos"
+  ],
   "packages": [
     {
-      "id": "smeup-es",
-      "title": "Smeup ES",
-      "description": "Package per i servizi Smeup ES su AS400, con report e stampa.",
-      "microExecutorIds": ["me-java-as400proxy", "me-java-h53"],
-      "installed": true,
-      "entities": [
-        {"id": "OGGETTO_AS400", "description": "Oggetto consultabile tramite il connettore AS400."},
-        {"id": "REPORT", "description": "Report gestito dalla piattaforma."}
+      "name": "smeup-es",
+      "version": "1.0.0",
+      "grainVersion": ">=8.3.0 <9.0.0",
+      "publisher": "Smeup LAB",
+      "description": "Smeup Enterprise Suite",
+      "publishedAt": "2026-11-19T10:00:00Z",
+      "components": [
+        {
+          "name": "kokos-dsl-smeupes",
+          "type": "dsl",
+          "repository": "https://github.com/smeup/kokos-dsl-smeupes",
+          "ref": "1.0.0"
+        },
+        {
+          "name": "me-java-as400-proxy",
+          "type": "micro-executor",
+          "image": "100076361442.dkr.ecr.eu-south-1.amazonaws.com/kokos-java-as400proxy:4.10.0",
+          "configuration": {
+            "instance": {
+              "type": "object",
+              "properties": {
+                "A4P_SERVER": {
+                  "type": "string"
+                },
+                "A4P_USER": {
+                  "type": "string"
+                },
+                "A4P_PASSWORD": {
+                  "type": "string",
+                  "format": "password"
+                },
+                "A4P_ENVIRONMENT": {
+                  "type": "string"
+                },
+                "A4P_CONC_FUN": {
+                  "type": "integer",
+                  "default": 1
+                },
+                "MAX_NUMBER_OF_CELLS": {
+                  "type": "integer",
+                  "default": 500000
+                }
+              },
+              "required": [
+                "A4P_SERVER",
+                "A4P_USER",
+                "A4P_PASSWORD",
+                "A4P_ENVIRONMENT"
+              ]
+            },
+            "applicativeDomain": {
+              "type": "object",
+              "properties": {
+                "as400Environment": {
+                  "type": "string"
+                },
+                "as400Ccsid": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "as400Environment",
+                "as400Ccsid"
+              ]
+            }
+          },
+          "services": [
+            {
+              "id": "LOA10_SE",
+              "description": "Lettura dati"
+            },
+            {
+              "id": "LOA36_SI",
+              "description": "Scrittura dati"
+            },
+            {
+              "id": "JATRE_06C",
+              "description": "Parser delle schede"
+            }
+          ]
+        },
+        {
+          "name": "me-java-h53",
+          "type": "micro-executor",
+          "image": "100076361442.dkr.ecr.eu-south-1.amazonaws.com/kokos-java-h53:2.5.0",
+          "services": [
+            {
+              "id": "B£STAM_69",
+              "description": "Creazione di stampe"
+            }
+          ]
+        }
       ]
     },
     {
-      "id": "holos",
-      "title": "HOLOS",
-      "description": "Package per la gestione di classi, istanze e attività di HOLOS L64.",
-      "microExecutorIds": ["me-node-holos"],
-      "installed": true,
-      "entities": [
-        {"id": "CLASSE_L64", "description": "Classe HOLOS L64."},
-        {"id": "ISTANZA_L64", "description": "Istanza HOLOS L64."},
-        {"id": "ATTIVITA_HOLOS", "description": "Attività operativa HOLOS."}
+      "name": "holos",
+      "version": "1.0.0",
+      "grainVersion": ">=8.3.0 <9.0.0",
+      "publisher": "HTG",
+      "description": "Holos",
+      "publishedAt": "2026-11-19T10:00:00Z",
+      "components": [
+        {
+          "name": "kokos-dsl-holos",
+          "type": "dsl",
+          "repository": "https://github.com/smeup/kokos-dsl-holos",
+          "ref": "1.2.0"
+        },
+        {
+          "name": "me-node-holos",
+          "type": "micro-executor",
+          "image": "100076361442.dkr.ecr.eu-south-1.amazonaws.com/kokos-node-holos:1.0.0",
+          "configuration": {
+            "applicativeDomain": {
+              "type": "object",
+              "properties": {
+                "l64Server": {
+                  "type": "string"
+                },
+                "l64User": {
+                  "type": "string"
+                },
+                "l64Password": {
+                  "type": "string",
+                  "format": "password"
+                }
+              },
+              "required": [
+                "l64Server",
+                "l64User",
+                "l64Password"
+              ]
+            }
+          },
+          "services": [
+            {
+              "id": "HO_001_01",
+              "description": "Lettura classi"
+            },
+            {
+              "id": "HO_001_02",
+              "description": "Lettura istanze"
+            }
+          ]
+        },
+        {
+          "name": "me-node-holos-rules",
+          "type": "micro-executor",
+          "image": "100076361442.dkr.ecr.eu-south-1.amazonaws.com/kokos-node-holos-rules:1.0.0",
+          "configuration": {
+            "applicativeDomain": {}
+          },
+          "services": [
+            {
+              "id": "HO_002_01",
+              "description": "Esecuzione regole"
+            }
+          ]
+        }
       ]
     },
     {
-      "id": "smeup-multipiattaforma",
-      "title": "Smeup Multipiattaforma",
-      "description": "Package per le funzioni di base e Webup.js della piattaforma Smeup.",
-      "microExecutorIds": ["me-java-rpgle-std"],
-      "installed": false,
-      "entities": [
-        {"id": "OGGETTO_CORE", "description": "Oggetto delle funzioni di base."},
-        {"id": "PAGINA_WEBUP", "description": "Pagina gestita da Webup.js."}
-      ]
-    },
-    {
-      "id": "evodoc",
-      "title": "Evodoc",
-      "description": "Package per la gestione documentale: acquisizione, classificazione e conservazione dei documenti.",
-      "microExecutorIds": ["me-java-evodoc"],
-      "installed": false,
-      "entities": [
-        {"id": "DOCUMENTO", "description": "Documento acquisito e classificato."},
-        {"id": "CLASSE_DOCUMENTALE", "description": "Classe che definisce metadati e regole di conservazione."}
-      ]
-    },
-    {
-      "id": "archismall",
-      "title": "Archismall",
-      "description": "Package per l'archiviazione leggera di allegati e fascicoli per le piccole realtà.",
-      "microExecutorIds": ["me-java-archismall"],
-      "installed": false,
-      "entities": [
-        {"id": "FASCICOLO", "description": "Fascicolo che raggruppa allegati correlati."},
-        {"id": "ALLEGATO", "description": "File archiviato in un fascicolo."}
+      "name": "smeup-es-mu",
+      "version": "1.0.0",
+      "grainVersion": ">=8.3.0 <9.0.0",
+      "publisher": "Smeup LAB",
+      "description": "Smeup Enterprise Suite (multiplatform)",
+      "publishedAt": "2026-11-19T10:00:00Z",
+      "components": [
+        {
+          "name": "kokos-dsl-smeuperp",
+          "type": "dsl",
+          "repository": "https://github.com/smeup/kokos-dsl-smeuperp",
+          "ref": "1.0.0"
+        },
+        {
+          "name": "kokos-dsl-smeuperp-persup",
+          "type": "dsl",
+          "repository": "https://github.com/smeup/kokos-dsl-smeuperp-persup",
+          "ref": "1.0.0"
+        },
+        {
+          "name": "kokos-dsl-smeuperp-smeupdem",
+          "type": "dsl",
+          "repository": "https://github.com/smeup/kokos-dsl-smeuperp-smeupdem",
+          "ref": "1.0.0"
+        },
+        {
+          "name": "me-rpgle-smeuperp",
+          "type": "micro-executor",
+          "image": "100076361442.dkr.ecr.eu-south-1.amazonaws.com/kokos-rpgle-smeuperp:1.0.0",
+          "configuration": {
+            "instance": {
+              "type": "object",
+              "properties": {
+                "SMEUPERP_DEFAULT_RELATIONAL_DB_URI": {
+                  "type": "string",
+                  "required": true
+                },
+                "SMEUPERP_DEFAULT_RELATIONAL_DB_USERNAME": {
+                  "type": "string",
+                  "required": true
+                },
+                "SMEUPERP_DEFAULT_RELATIONAL_DB_PASSWORD": {
+                  "type": "string",
+                  "format": "password",
+                  "required": true
+                }
+              },
+              "required": [
+                "SMEUPERP_DEFAULT_RELATIONAL_DB_URI",
+                "SMEUPERP_DEFAULT_RELATIONAL_DB_USERNAME",
+                "SMEUPERP_DEFAULT_RELATIONAL_DB_PASSWORD"
+              ]
+            },
+            "applicativeDomain": {
+              "type": "object",
+              "properties": {
+                "smeupErpDefaultRelationalDatabaseSchema": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "smeupErpDefaultRelationalDatabaseSchema"
+              ]
+            }
+          }
+        }
       ]
     }
   ]
