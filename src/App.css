@@ -759,6 +759,16 @@
   font-weight: 400;
 }
 
+.dashboard-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.dashboard-stats dd a {
+  display: inline-block;
+  margin-top: 4px;
+  color: inherit;
+}
+
 .analysis-comparison h3 {
   margin: 0 0 8px;
   color: var(--ink);

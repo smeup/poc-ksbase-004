@@ -3,7 +3,7 @@
 ## Navigazione e domini applicativi
 
 L'istanza Grain è sempre Smeup SI: non esiste un'anagrafica delle istanze né
-una pagina per sceglierle. L'amministrazione è sotto `/app/administration`,
+una pagina per sceglierle. L'amministrazione parte dalla radice `/`,
 che apre direttamente il layout con menu a sinistra («Domini applicativi» e
 «Packages») e sezione dinamica a destra; da qui si raggiunge anche l'«Analisi».
 Il menu del dominio non ha una voce Packages: i package si consultano

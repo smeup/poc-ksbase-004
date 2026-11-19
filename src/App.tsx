@@ -24,7 +24,6 @@ import {
 import { collectPackageEntities, validatePackageEntities, type PackageEntity } from "./package-entities";
 import "./App.css";
 
-const ADMIN_BASE = "/app/administration";
 const GRAIN_TITLE = "Smeup SI";
 
 type UiCustomization = {
@@ -339,7 +338,7 @@ function AppShell() {
         <div className="topbar-inner">
           <Link
             className="brand"
-            to={ADMIN_BASE}
+            to="/"
             aria-label="Grain, pagina iniziale"
           >
             <span className="brand-mark" aria-hidden="true">
@@ -374,13 +373,17 @@ function AdministrationLayout() {
           <section className="environment-summary-card" aria-labelledby="administration-title">
             <p className="eyebrow">Amministrazione</p>
             <h1 id="administration-title">{GRAIN_TITLE}</h1>
-            <Link className="analysis-button" to={`${ADMIN_BASE}/analisi`}>
+            <Link className="analysis-button" to={`/analisi`}>
               Analisi
             </Link>
           </section>
           <div className="environment-sidebar-menu">
             <p className="sidebar-caption">Menu</p>
             <nav className="sidebar-nav">
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="/" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Dashboard
+              </NavLink>
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="domini" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Domini applicativi
@@ -398,6 +401,49 @@ function AdministrationLayout() {
         </div>
       </div>
     </main>
+  );
+}
+
+function AdministrationDashboard() {
+  const { environments, packages, microExecutors } = useOutletContext<ApplicationConfiguration>();
+  const installedPackages = packages.filter((pkg) => pkg.installed);
+  const apiCount = microExecutors.reduce((total, item) => total + item.apis.length, 0);
+  const dataSourceCount = microExecutors.reduce((total, item) => total + item.dataSources.length, 0);
+  const entityCount = packages.reduce((total, pkg) => total + pkg.entities.length, 0);
+
+  return (
+    <section aria-labelledby="dashboard-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">{GRAIN_TITLE}</p>
+          <h2 id="dashboard-heading">Dashboard</h2>
+        </div>
+        <span className="detail-format">Dati mock</span>
+      </div>
+      <p className="page-intro api-intro">
+        Panoramica dell'istanza {GRAIN_TITLE}: domini applicativi, package installati e
+        micro executor che ne erogano i servizi.
+      </p>
+
+      <dl className="capacity-list dashboard-stats">
+        <div className="capacity-card">
+          <dt>Domini applicativi</dt>
+          <dd><strong>{environments.length}</strong> <Link to="/domini">Vedi domini</Link></dd>
+        </div>
+        <div className="capacity-card">
+          <dt>Package installati</dt>
+          <dd><strong>{installedPackages.length} / {packages.length}</strong> <Link to="/packages">Vedi packages</Link></dd>
+        </div>
+        <div className="capacity-card">
+          <dt>Micro executor</dt>
+          <dd><strong>{microExecutors.length}</strong> {apiCount} servizi API · {dataSourceCount} data source</dd>
+        </div>
+        <div className="capacity-card">
+          <dt>Entità definite dai package</dt>
+          <dd><strong>{entityCount}</strong> su {packages.length} package</dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
@@ -425,7 +471,7 @@ function AdministrationDomains() {
             <Link
               className="micro-executor-card"
               key={environment.id}
-              to={`${ADMIN_BASE}/applicative-domain/${environment.id}`}
+              to={`/applicative-domain/${environment.id}`}
             >
               <div className="micro-executor-card-top">
                 <span className="environment-id">{environment.id}</span>
@@ -448,7 +494,7 @@ function AnalysisLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
+        <Link to="/">{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
         <span>Analisi</span>
       </div>
@@ -677,7 +723,7 @@ function AnalysisConceptsPage() {
         className="analysis-step-navigation"
         aria-label="Navigazione nel percorso di analisi"
       >
-        <Link to={`${ADMIN_BASE}/analisi/${analysisCases[0].path}`}>
+        <Link to={`/analisi/${analysisCases[0].path}`}>
           <span>Inizia il percorso</span>
           {analysisCases[0].title}
         </Link>
@@ -728,7 +774,7 @@ function AnalysisCasePage({
           {analysisCase.nextQuestion}
         </p>
         {nextCase && (
-          <Link to={`${ADMIN_BASE}/analisi/${nextCase.path}`}>
+          <Link to={`/analisi/${nextCase.path}`}>
             Prosegui: {nextCase.title} <span aria-hidden="true">-&gt;</span>
           </Link>
         )}
@@ -778,7 +824,7 @@ function AnalysisCasePage({
           {previousCase ? previousCase.title : "Concetti fondamentali"}
         </Link>
         {nextCase && (
-          <Link to={`${ADMIN_BASE}/analisi/${nextCase.path}`}>
+          <Link to={`/analisi/${nextCase.path}`}>
             <span>Passo successivo</span>
             {nextCase.title}
           </Link>
@@ -802,7 +848,7 @@ function AnalysisCasePage({
               {analysisCases.map((item) => (
                 <tr key={item.path}>
                   <th scope="row">
-                    <Link to={`${ADMIN_BASE}/analisi/${item.path}`}>{item.title}</Link>
+                    <Link to={`/analisi/${item.path}`}>{item.title}</Link>
                   </th>
                   <td>{item.comparisonPrograms}</td>
                   <td>{item.comparisonData}</td>
@@ -836,7 +882,7 @@ function EnvironmentLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
+        <Link to="/">{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
         <span>{environment.id}</span>
       </div>
@@ -969,7 +1015,7 @@ function MicroExecutorLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
+        <Link to="/">{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
         <span>{microExecutor.id}</span>
       </div>
@@ -1270,7 +1316,7 @@ function EnvironmentHealthCheck() {
               <div className="health-card-heading">
                 <div>
                   <span className="environment-id">{pkg.id}</span>
-                  <h3><Link to={`${ADMIN_BASE}/packages/${pkg.id}`}>{pkg.title}</Link></h3>
+                  <h3><Link to={`/packages/${pkg.id}`}>{pkg.title}</Link></h3>
                 </div>
                 <span className={`health-status is-${health.status}`}>
                   {health.status === "healthy" ? "Viva" : health.status === "error" ? "In errore" : "Non disponibile"}
@@ -1591,7 +1637,7 @@ function EntitiesTable({ packages, linkToPackage = false }: { packages: Package[
               <td>{entity.description}</td>
               <td>
                 {linkToPackage ? (
-                  <Link to={`${ADMIN_BASE}/packages/${pkg.id}/entita`}>{pkg.title}</Link>
+                  <Link to={`/packages/${pkg.id}/entita`}>{pkg.title}</Link>
                 ) : pkg.title}
                 <span className="entities-package-id">{pkg.id}</span>
               </td>
@@ -1720,7 +1766,7 @@ function InstallationStatus({ installed }: { installed: boolean }) {
 
 function PackageCard({ pkg, showStatus = false }: { pkg: Package; showStatus?: boolean }) {
   return (
-    <Link className="micro-executor-card" to={`${ADMIN_BASE}/packages/${pkg.id}`}>
+    <Link className="micro-executor-card" to={`/packages/${pkg.id}`}>
       <div className="micro-executor-card-top">
         <span className="environment-id">{pkg.id}</span>
         {showStatus ? (
@@ -1763,7 +1809,7 @@ function PackageLayout() {
   return (
     <main className="site-main environment-main">
       <div className="environment-breadcrumb">
-        <Link to={ADMIN_BASE}>{GRAIN_TITLE}</Link>
+        <Link to="/">{GRAIN_TITLE}</Link>
         <span aria-hidden="true">/</span>
         <span>{pkg.id}</span>
       </div>
@@ -1881,7 +1927,7 @@ function PackageServices() {
               <div>
                 <dt>Micro executor</dt>
                 <dd className="detail-value api-executor-id">
-                  <Link className="data-source-owner" to={`${ADMIN_BASE}/micro-executors/${api.microExecutorId}/api`}>
+                  <Link className="data-source-owner" to={`/micro-executors/${api.microExecutorId}/api`}>
                     {api.microExecutorId}
                   </Link>
                 </dd>
@@ -1917,7 +1963,7 @@ function PackageMicroExecutors() {
             <Link
               className="micro-executor-card"
               key={microExecutor.id}
-              to={`${ADMIN_BASE}/micro-executors/${microExecutor.id}`}
+              to={`/micro-executors/${microExecutor.id}`}
             >
               <div className="micro-executor-card-top">
                 <span className="environment-id">{microExecutor.id}</span>
@@ -2058,7 +2104,7 @@ function DataSourcesList({
             <dd className="detail-value">
               <Link
                 className="data-source-owner"
-                to={`${ADMIN_BASE}/micro-executors/${microExecutor.id}/data-sources`}
+                to={`/micro-executors/${microExecutor.id}/data-sources`}
               >
                 {microExecutor.title}
               </Link>
@@ -2206,7 +2252,7 @@ function NotFoundPage() {
       <p className="page-intro">
         La risorsa richiesta non &egrave; presente nella configurazione.
       </p>
-      <Link className="message-link" to={ADMIN_BASE}>
+      <Link className="message-link" to="/">
         Torna all'amministrazione
       </Link>
     </main>
@@ -2240,19 +2286,17 @@ function ConfigurationError() {
 
 const router = createBrowserRouter(
   [
-    { path: "/", element: <Navigate to={ADMIN_BASE} replace /> },
-    { path: "/app", element: <Navigate to={ADMIN_BASE} replace /> },
     {
-      path: ADMIN_BASE,
+      path: "/",
       loader: loadConfiguration,
       HydrateFallback: ConfigurationLoading,
       element: <AppShell />,
       errorElement: <ConfigurationError />,
       children: [
-        { index: true, element: <Navigate to="domini" replace /> },
         {
           element: <AdministrationLayout />,
           children: [
+            { index: true, element: <AdministrationDashboard /> },
             { path: "domini", element: <AdministrationDomains /> },
             { path: "packages", element: <AdministrationPackages /> },
             { path: "packages/store", element: <PackageStore /> },
@@ -2324,7 +2368,6 @@ const router = createBrowserRouter(
       ],
     },
     { path: "/app/:id/*", element: <DomainRuntimePage /> },
-    { path: "*", element: <Navigate to={ADMIN_BASE} replace /> },
   ],
   { basename: import.meta.env.BASE_URL },
 );
