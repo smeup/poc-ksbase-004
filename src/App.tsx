@@ -16,6 +16,12 @@ import {
 import { parseDomainCapacities } from "./domain-capacity";
 import { getDomainHealth, parseHealthChecks } from "./health-check";
 import {
+  groupResourcesByCategory,
+  parsePackageResources,
+  resourceTypes,
+  type PackageResource,
+} from "./package-resources";
+import {
   getConfigurationValue,
   getSchemaProperties,
   type JsonSchema,
@@ -82,6 +88,8 @@ type PackageManifest = {
   description: string;
   publishedAt: string;
   components: PackageComponent[];
+  /** Altre risorse associate al package: datasource, message broker, container generici. */
+  resources?: PackageResource[];
 };
 
 type Package = PackageManifest & {
@@ -308,6 +316,12 @@ async function loadConfiguration(): Promise<ApplicationConfiguration> {
           }
         }
       }
+    }
+    for (const resource of parsePackageResources(pkg.name, pkg.resources)) {
+      if (componentNames.has(resource.name)) {
+        throw new Error(`Risorsa ${resource.name} duplicata nel package ${pkg.name}.`);
+      }
+      componentNames.add(resource.name);
     }
   }
   for (const name of catalog.installed) {
@@ -1016,6 +1030,16 @@ function EnvironmentLayout() {
               >
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 Servizi
+              </NavLink>
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " is-active" : ""}`
+                }
+                to="altre-risorse"
+                end
+              >
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Altre risorse
               </NavLink>
               <NavLink
                 className={({ isActive }) =>
@@ -1792,7 +1816,7 @@ function PackageCard({ pkg, showStatus = false }: { pkg: Package; showStatus?: b
       </div>
       <h3>{pkg.description}</h3>
       <p>
-        {pkg.publisher} · {getMicroExecutors(pkg).length} micro executor · {getDslComponents(pkg).length} DSL
+        {pkg.publisher} · {getMicroExecutors(pkg).length} micro executor · {getDslComponents(pkg).length} DSL · {pkg.resources?.length ?? 0} risorse
       </p>
       <div className="micro-executor-card-action">
         <span>Package v{pkg.version}</span>
@@ -1852,6 +1876,10 @@ function PackageLayout() {
               <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="dsl" end>
                 <span className="sidebar-link-marker" aria-hidden="true" />
                 DSL
+              </NavLink>
+              <NavLink className={({ isActive }) => `sidebar-link${isActive ? " is-active" : ""}`} to="altre-risorse" end>
+                <span className="sidebar-link-marker" aria-hidden="true" />
+                Altre risorse
               </NavLink>
             </nav>
           </div>
@@ -1960,6 +1988,105 @@ function PackageDsl() {
             </dl>
           ))}
         </div>
+      )}
+    </section>
+  );
+}
+
+type ResourceItem = { resource: PackageResource; pkg?: Package };
+
+function ResourceGroups({ items }: { items: ResourceItem[] }) {
+  return (
+    <div className="resource-groups">
+      {groupResourcesByCategory(items).map((group) => (
+        <section className="resource-group" key={group.id} aria-labelledby={`resource-group-${group.id}`}>
+          <div className="resource-group-heading">
+            <h3 id={`resource-group-${group.id}`}>{group.label}</h3>
+            <span className="detail-format">{group.items.length}</span>
+          </div>
+          <div className="api-list">
+            {group.items.map(({ resource, pkg }) => (
+              <dl className={`api-row${pkg ? " resource-row" : ""}`} key={resource.name}>
+                <div>
+                  <dt>Nome</dt>
+                  <dd className="detail-value detail-id">{resource.name}</dd>
+                  {resource.description && <dd className="detail-value api-executor-id">{resource.description}</dd>}
+                </div>
+                <div>
+                  <dt>Tipo</dt>
+                  <dd className="detail-value">{resourceTypes[resource.type].label}</dd>
+                </div>
+                <div>
+                  <dt>{resource.image ? "Immagine" : "Versione"}</dt>
+                  <dd className="detail-value">
+                    <code>{resource.image ?? resource.version ?? "—"}</code>
+                  </dd>
+                </div>
+                {pkg && (
+                  <div>
+                    <dt>Package</dt>
+                    <dd className="detail-value">
+                      <Link className="data-source-owner" to={`/packages/${pkg.name}/altre-risorse`}>
+                        {pkg.name}
+                      </Link>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function PackageResources() {
+  const { pkg } = useOutletContext<PackageContext>();
+  const resources = pkg.resources ?? [];
+
+  return (
+    <section aria-labelledby="package-resources-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Package · {pkg.name}</p>
+          <h2 id="package-resources-heading">Altre risorse</h2>
+        </div>
+        <span className="detail-format">{resources.length} risorse</span>
+      </div>
+      <p className="page-intro api-intro">
+        Risorse associate al package oltre ai componenti: datasource, message
+        broker e container generici, raggruppate per categoria.
+      </p>
+      {resources.length === 0 ? (
+        <p className="page-intro">Nessuna risorsa associata al package.</p>
+      ) : (
+        <ResourceGroups items={resources.map((resource) => ({ resource }))} />
+      )}
+    </section>
+  );
+}
+
+function EnvironmentResources() {
+  const { environment, packages } = useOutletContext<EnvironmentContext>();
+  const items = packages.flatMap((pkg) => (pkg.resources ?? []).map((resource) => ({ resource, pkg })));
+
+  return (
+    <section aria-labelledby="environment-resources-heading">
+      <div className="detail-heading">
+        <div>
+          <p className="eyebrow">Dominio applicativo · {environment.title}</p>
+          <h2 id="environment-resources-heading">Altre risorse</h2>
+        </div>
+        <span className="detail-format">{items.length} risorse</span>
+      </div>
+      <p className="page-intro api-intro">
+        Risorse dei package attivi nel dominio, raggruppate per categoria.
+      </p>
+      {items.length === 0 ? (
+        <p className="page-intro">Nessuna risorsa disponibile.</p>
+      ) : (
+        <ResourceGroups items={items} />
       )}
     </section>
   );
@@ -2287,6 +2414,7 @@ const router = createBrowserRouter(
             { path: "configurazione", element: <PackageConfigurationPage /> },
             { path: "micro-executors", element: <PackageMicroExecutors /> },
             { path: "dsl", element: <PackageDsl /> },
+            { path: "altre-risorse", element: <PackageResources /> },
           ],
         },
         {
@@ -2307,6 +2435,7 @@ const router = createBrowserRouter(
             { path: "dettaglio", element: <EnvironmentDetail /> },
             { path: "configurazione", element: <EnvironmentConfigurationPage /> },
             { path: "servizi", element: <EnvironmentServices /> },
+            { path: "altre-risorse", element: <EnvironmentResources /> },
             { path: "health-check", loader: loadHealthChecks, element: <EnvironmentHealthCheck />, errorElement: <DomainMockDataError title="Health check" /> },
             { path: "capacita-limiti", loader: loadDomainCapacities, element: <EnvironmentCapacity />, errorElement: <DomainMockDataError title="Capacità e limiti" /> },
             {

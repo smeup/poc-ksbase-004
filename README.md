@@ -44,7 +44,27 @@ dei package. I nomi dei componenti sono univoci in tutto il catalogo.
 La voce «Packages» mostra i package installati; «Package Store» il catalogo
 completo con lo stato di installazione, in sola lettura. La pagina del package
 ha le voci Dettaglio (manifest), Configurazione (schemi dei micro executor),
-Micro executors e DSL.
+Micro executors, DSL e Altre risorse.
+
+## Altre risorse
+
+Oltre ai componenti, un package può dichiarare in `resources` le risorse a cui
+è associato direttamente. Ogni risorsa ha `name`, `type`, `description`
+facoltativa e, a seconda del tipo, `version` o `image`. Il tipo determina la
+categoria:
+
+| Categoria | `type` | Campi |
+| --- | --- | --- |
+| Datasource | `postgres`, `mongo` | `version` facoltativa |
+| Message broker | `rabbitmq` | `version` facoltativa |
+| Container generici | `container` | `image` obbligatoria |
+
+I nomi delle risorse sono univoci in tutto il catalogo, insieme a quelli dei
+componenti; tipi sconosciuti o container senza immagine impediscono il
+caricamento. La voce «Altre risorse» del package le mostra raggruppate per
+categoria; la voce omonima del dominio applicativo mostra, per categoria, le
+risorse dei package attivi nel dominio con il package di provenienza. Le
+risorse sono esempi mock: non vengono create né verificate.
 
 ## Configurazioni package del dominio
 
