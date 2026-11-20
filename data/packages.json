@@ -98,6 +98,20 @@
             }
           ]
         }
+      ],
+      "resources": [
+        {
+          "name": "pg-smeup-es",
+          "type": "postgres",
+          "version": "16.4",
+          "description": "Database relazionale dei dati applicativi"
+        },
+        {
+          "name": "rabbit-smeup-es",
+          "type": "rabbitmq",
+          "version": "3.13",
+          "description": "Code per l'elaborazione asincrona delle stampe"
+        }
       ]
     },
     {
@@ -164,6 +178,20 @@
               "description": "Esecuzione regole"
             }
           ]
+        }
+      ],
+      "resources": [
+        {
+          "name": "mongo-holos",
+          "type": "mongo",
+          "version": "7.0",
+          "description": "Archivio documentale di classi e istanze"
+        },
+        {
+          "name": "holos-rules-cache",
+          "type": "container",
+          "image": "docker.io/library/redis:7.4",
+          "description": "Cache delle regole compilate"
         }
       ]
     },
@@ -233,6 +261,14 @@
               ]
             }
           }
+        }
+      ],
+      "resources": [
+        {
+          "name": "pg-smeuperp",
+          "type": "postgres",
+          "version": "16.4",
+          "description": "Database relazionale predefinito di Smeup ERP"
         }
       ]
     }
